@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aletheia"
+version = "0.1.0"
+description = "Calibration-governed AI investment framework: trust-weighted committee, adversarial falsification, constitutional risk, tamper-evident decision ledger."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Jurgis" }]
+keywords = ["ai-agents", "forecasting", "calibration", "risk-management", "governance"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Financial and Insurance Industry",
+    "Programming Language :: Python :: 3",
+    "Topic :: Office/Business :: Financial :: Investment",
+]
+# deliberately zero runtime dependencies: stdlib only, for auditability
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.scripts]
+aletheia = "aletheia.cli:main"
+
+[tool.setuptools]
+packages = ["aletheia", "aletheia.agents", "aletheia.calibration", "aletheia.core", "aletheia.data", "aletheia.engine"]
