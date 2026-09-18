@@ -12,9 +12,7 @@ Reports:
 """
 from __future__ import annotations
 
-import statistics
 from collections import defaultdict
-from datetime import date
 from typing import Optional
 
 
@@ -27,12 +25,16 @@ def trust_evolution(ledger) -> list[dict]:
     """
     from aletheia.calibration.trust import CalibrationRecord, trust_weight
 
-    records = {
-        "quant": CalibrationRecord(name="quant"),
-        "bull": CalibrationRecord(name="bull"),
-        "bear": CalibrationRecord(name="bear"),
-        "judge": CalibrationRecord(name="judge"),
-    }
+    # Derive the member roster from the ledger itself, so optional
+    # members (e.g. the LLM member) appear without a hardcoded list.
+    agents: list[str] = []
+    for e in ledger.entries:
+        if e.kind != "resolution":
+            continue
+        a = e.payload.get("agent")
+        if a and a not in agents:
+            agents.append(a)
+    records = {a: CalibrationRecord(name=a) for a in agents}
     out: list[dict] = []
     for e in ledger.entries:
         if e.kind != "resolution":

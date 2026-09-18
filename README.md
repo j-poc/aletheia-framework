@@ -2,6 +2,10 @@
 
 **A calibration-governed AI investment framework.**
 
+> **Evaluating this research?** Start with [`docs/TECHNICAL_REPORT.md`](docs/TECHNICAL_REPORT.md) —
+> the lab-grade write-up with cross-market results, trivial-baseline comparisons, negative
+> results, and limitations. This README documents the system; the report grades it.
+
 Most "AI investing" stacks today — including the multi-agent research patterns emerging from
 the major labs — share one architecture: capable models research a market, debate, and
 produce a recommendation. The missing layer is *governance*: nothing tracks whether the
@@ -18,6 +22,7 @@ Aletheia is that missing layer, built as a complete decision engine:
 | **Tamper-evident decision ledger** | Every forecast, thesis, veto, order and resolution is hash-chained (sha256, prev-hash linked) into an append-only JSONL ledger. Rewrite history and `verify()` breaks. | `aletheia/calibration/ledger.py` |
 | **Walk-forward governance engine** | The `Committee` owns the decision cycle (members, gate, judge fusion, skill recall); the engine owns execution: sizing, constitutional enforcement every session, order/cost simulation, and forecast grading. Point-in-time data, no look-ahead, deterministic reruns. | `aletheia/engine/backtest.py` |
 | **Regime skill book** | A recurring job distills the ledger's *resolved committee decisions* into regime-conditional base rates ("calm regime + high-confidence call → 73% net-of-cost hit rate"). Recalled walk-forward-only, shrunk to the prior, and every application is logged. | `aletheia/agents/skills.py` |
+| **LLM member (opt-in)** | A frontier model seats on the committee through the *same* Agent contract: pre-registered probabilistic forecast, graded and trust-weighted like everyone else. Every failure mode — missing key, network error, timeout, malformed output, out-of-range probability — resolves to an explicit abstention, never an exception and never a fabricated number. | `aletheia/agents/llm.py` |
 | **Ledger-native observability** | Trust-weight evolution, veto breakdown by article, and the live skill book — all replayed from the hash-chained ledger itself, not a parallel telemetry pipeline. | `aletheia/observability.py` |
 
 ```
@@ -156,6 +161,33 @@ from production agent building (e.g. Vercel's data-science-agent journey):
    (future LLM members), the plan is minimal primitives — read/write/execute in a
    data sandbox — not prescriptive hand-mapped tool chains.
 
+## The LLM member
+
+Frontier models join the committee governed, not trusted. With `--llm` (or `llm_member=`),
+an OpenAI-compatible endpoint is asked for one JSON object per symbol per decision day —
+`{"prob_up", "confidence", "expected_edge", "rationale"}` — using **only point-in-time state**
+(prices and macro clipped to the decision date, other members present by name, never by view).
+The call is pre-registered before any committee debate sees it, then graded net-of-cost and
+trust-weighted exactly like the built-in members; a confidently wrong model is demoted by the
+same math that demotes anything else.
+
+Configuration is environment-only, read at one boundary:
+
+```bash
+export ALETHEIA_LLM_API_KEY=...     # required; absent -> member abstains
+export ALETHEIA_LLM_BASE_URL=...    # default https://api.openai.com/v1
+export ALETHEIA_LLM_MODEL=...       # default gpt-4o-mini
+python3 -m aletheia.cli backtest --synthetic --llm
+```
+
+**Honest status:** the grading/trust path and *every* abstention path (unconfigured, network
+error, timeout, malformed JSON, out-of-range probability) are machine-proven against a
+deterministic stub in `tests/test_llm_member.py` — 18 tests. The live API path is exercised
+by an environment-gated smoke test (`test_live_smoke_call`) but has **not** been run against
+a real endpoint in this environment (no key was available); only the abstention paths are
+machine-proven end-to-end with a real-configuration-shaped member. Default runs are
+byte-identical with and without the flag wiring (the member simply issues no forecasts).
+
 ## Data
 
 `FredProvider` pulls official keyless daily data from the St. Louis Fed (S&P 500, Nasdaq
@@ -176,9 +208,9 @@ python3 -c "from aletheia.data.providers import FredProvider; \
 
 ## Roadmap
 
-- **LLM committee members**: the `Agent` ABC + `Forecast` contract are exactly the interface
-  a frontier-LLM agent needs — its reasoning becomes *pre-registered, gradeable, and
-  trust-weighted* like any other member. Weak LLMs get demoted by the same math.
+- **LLM member hardening**: the seat exists and is governed (see above); what remains is
+  validation against real endpoints, richer prompt state, and measuring whether its
+  calibration earns or loses influence over long horizons.
 - Regime-conditional calibration (trust weights per VIX regime, not global).
 - Portfolio-level attribution: which agent's forecasts actually paid?
 - Live paper-trading loop on the same governance stack.
