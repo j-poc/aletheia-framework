@@ -53,7 +53,7 @@ history only); deterministic reruns (byte-identical reports); zero runtime depen
   225, VIX, 2y/10y Treasury). Decision window Sep 2018 – Aug 2026; 60-session warmup;
   rebalance every 5 sessions; 21-session forecast horizon.
 - **Grading**: a forecast counts as correct only if the realized move exceeded the
-  round-trip cost (5 bps side, 5 bps total assumption) — agents earn credit for *tradable*
+  round-trip cost (10 bps: 5 bps per side) — agents earn credit for *tradable*
   edge, not epsilon drift.
 - **No test-set tuning**: all constants (VIX thresholds 14/30, curve slope 1.5pp, skill
   shrinkage n=30, Kelly fraction 0.5, position cap 20%, VaR 2%) were fixed from design
@@ -100,7 +100,9 @@ alpha machine should stop reading here — that is not the claim.
 
 ### 3. Calibration behavior, and a decomposition that cuts against us
 
-Mean Brier across 3,080+ graded forecasts ≈ 0.254 (net-of-cost grading) in every market;
+Mean Brier across 3,080+ graded forecasts (net-of-cost grading): 0.2547 / 0.2686 / 0.2611
+(S&P+NDX / DJIA / Nikkei) — similar across markets, all in the "better than chance, far
+from clairvoyant" band;
 trust weights migrate measurably over the window (e.g., the bull agent earned weight
 through the 2019–2021 expansion and ceded it in 2022; a poorly calibrated quant was
 demoted to 0.671 in synthetic runs).
@@ -118,7 +120,25 @@ where up-drifts clear the cost bar ~74% of the time — not from bucket-level pr
 power. The base-rate layer works as a deployment filter, not a probability refiner.
 Whether that timing edge persists out-of-window is untested.
 
-### 4. Negative results (published deliberately)
+### 4. Out-of-window validation and uncertainty (added post-review)
+
+**The skills timing edge does not replicate out-of-window.** On Nikkei 1990–2017 — 28
+years the mechanism never saw, spanning Japan's entire post-bubble bear — skills-on and
+skills-off are identical: **+7.7% return, Sharpe 0.15, maxDD 6.5% both**. The in-window
+3/3 record (Section 1) should be read as regime-fit, not persistent edge.
+
+What did generalize is the risk layer: over 1990–2017 the governed committee returned
++7.7% with 6.5% max drawdown while the Nikkei index itself lost **−41.2%** with an
+**81.8% max drawdown**. In a 28-year window where the index never recovered its 1989
+high, the constitution kept the book alive and flat-ish — the intended behavior when no
+edge exists.
+
+**Uncertainty is wider than point estimates suggest.** Stationary-bootstrap 95% CIs on
+Sharpe (2,000 resamples, ~21-day blocks): SPX+NDX 2018–2026 [0.06, 1.30]; DJIA 2018–2026
+[0.16, 1.38]; Nikkei 1990–2017 [−0.22, 0.54]. No headline Sharpe in this report should
+be quoted without its interval; the OOW interval includes zero.
+
+### 5. Negative results (published deliberately)
 
 1. The mega-context judge fusion (all-member + macro + cross-book context, bounded
    ≤10pp) reduced returns on the original market and is neutral-to-negative elsewhere.
@@ -156,3 +176,12 @@ python -m aletheia.cli verify-ledger --path run_ledger.jsonl
 2. A real LLM calibration study: seat a frontier model through the member contract and
    measure whether its earned trust weight rises or falls over years of graded calls.
 3. Extension to more markets/decades and sub-period stability analysis.
+
+## Post-review status
+
+A structured review pass (see `REVIEW_FINDINGS.md`) corrected two doc-code
+contradictions (cost assumption 10 bps round trip, per-market Brier range), documented a
+≤4-session resolution-date wobble, added the out-of-window validation and bootstrap CIs
+above, and found the look-ahead surfaces clean (provider clipping, skill distillation,
+prompt construction, resolution timing). The skills out-of-window null (F4) supersedes
+the in-window skills record wherever the two conflict.
