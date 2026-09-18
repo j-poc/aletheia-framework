@@ -19,7 +19,10 @@ drawdowns to 2.4–5.7%** (vs. 10–11% for a matched fixed-mix baseline, 31–3
 buy-and-hold), and one mechanism — shrinkage-gated regime skills — improves return on
 **3 of 3 markets** (median +0.7pp). However, the full system **fails to beat trivial
 baselines on risk-adjusted return** in 2 of 3 markets, and one design lever (a
-"mega-context" judge pass) *hurts* on our original market. We publish both.
+"mega-context" judge pass) *hurts* on our original market. We publish both. We also
+fill the cell this architecture exists to fill: a real LLM, graded by eight years of
+market outcomes through the member contract, **earns a durable, ranked seat — promoted
+above its prior, last of five members** (Section 5).
 
 ## Positioning
 
@@ -102,7 +105,8 @@ alpha machine should stop reading here — that is not the claim.
 
 Mean Brier across 3,080+ graded forecasts (net-of-cost grading): 0.2547 / 0.2686 / 0.2611
 (S&P+NDX / DJIA / Nikkei) — similar across markets, all in the "better than chance, far
-from clairvoyant" band;
+from clairvoyant" band. The LLM member's eight-year grade lands in the same band and
+next to the same peers (Section 5).
 trust weights migrate measurably over the window (e.g., the bull agent earned weight
 through the 2019–2021 expansion and ceded it in 2022; a poorly calibrated quant was
 demoted to 0.671 in synthetic runs).
@@ -138,7 +142,46 @@ Sharpe (2,000 resamples, ~21-day blocks): SPX+NDX 2018–2026 [0.06, 1.30]; DJIA
 [0.16, 1.38]; Nikkei 1990–2017 [−0.22, 0.54]. No headline Sharpe in this report should
 be quoted without its interval; the OOW interval includes zero.
 
-### 5. Negative results (published deliberately)
+### 5. An LLM graded by the market: the empty cell, filled
+
+**A current-generation LLM earns a seat on the committee — and loses the top spot.**
+We seated an open-weights 20B reasoning model (`gpt-oss:20b` served locally via Ollama,
+`reasoning_effort: low`) through the standard member contract: pre-registered
+probabilistic forecasts committed before evidence review, graded net-of-cost against
+21-session S&P 500 outcomes across the full Sep 2018 – Aug 2026 window, trust-weighted
+by the same calibration rule as the built-ins. 390 calls, 0 retries, 0 abstentions; the
+resulting 5,044-entry ledger verifies end-to-end, with the SHA-256 chain recomputed
+independently of the framework's own loader. (Method note: cloud free tiers proved
+non-viable — Gemini's free tier now allows ~20 requests/day — so the run executed
+locally, which also makes it exactly reproducible by anyone with the weights.)
+
+| member | n | Brier | ECE | final trust weight |
+|---|---|---|---|---|
+| quant | 385 | 0.2684 | 0.1817 | 1.416 |
+| bull | 385 | **0.2364** | 0.1401 | **1.590** |
+| bear | 385 | 0.2393 | 0.1214 | 1.575 |
+| judge | 385 | 0.2482 | 0.1118 | 1.526 |
+| **llm** | 385 | 0.2701 | 0.1458 | 1.407 |
+
+The committee **promoted the LLM above its uniform prior**: its weight rose from 1.0 to
+1.407 and sat above the prior in 374 of 390 decisions (dipping to 0.863 early, peaking
+at 1.473). But every specialized built-in out-graded it, and it finished last of five
+in earned influence. It is demonstrably not noise (0.50 would be guessing; its
+net-of-cost hit rate matches the book at 0.668) and better calibrated than the quant
+member (ECE 0.146 vs 0.182) — while carrying the worst Brier of the five.
+
+The trajectory is the interesting part: per-third Brier runs **0.2621 → 0.2977 →
+0.2508** — degradation concentrated in the 2021–2024 bear/chop, its best grading in
+2024–2026. The trust mechanism did precisely what it exists to do: demoted the member
+through its worst regime, never discarded it, and priced its recovery. Neither
+worship nor exile — a real, ranked, earned seat.
+
+Limitations, stated plainly: this is an open-weights 20B model, not a frontier API
+model; one market; and the grading is the committee's own rule. Whether frontier
+models outrank the specialized heuristics is the open question, and the contract +
+runner exist to answer it.
+
+### 6. Negative results (published deliberately)
 
 1. The mega-context judge fusion (all-member + macro + cross-book context, bounded
    ≤10pp) reduced returns on the original market and is neutral-to-negative elsewhere.
@@ -155,8 +198,10 @@ be quoted without its interval; the OOW interval includes zero.
 - All thresholds hand-set and disclosed; a sensitivity ridge over them is planned.
 - The skill timing edge (Section 3) has not been tested out-of-window or on longer
   histories; the Nikkei series extends to 1949 and is the natural out-of-sample test.
-- The LLM member is fully governed (graded, weighted, abstention-only failure) but its
-  live grading against a real endpoint is unproven; the seat is testable by construction.
+- The LLM grading result (Section 5) is one open-weights 20B model, one market, graded
+  under the committee's own rule; a frontier-API member and additional markets are
+  untested. The member itself is fully governed (graded, weighted, abstention-only
+  failure) in all cases.
 - 5 bps transaction costs, index data only, USD-rate macro applied to the Nikkei book.
 
 ## Reproduction
@@ -173,8 +218,9 @@ python -m aletheia.cli verify-ledger --path run_ledger.jsonl
 
 1. Independent review of the grading and walk-forward machinery (the ledger makes every
    decision mechanically auditable).
-2. A real LLM calibration study: seat a frontier model through the member contract and
-   measure whether its earned trust weight rises or falls over years of graded calls.
+2. Extend the LLM grading study (Section 5) to frontier-API models and more markets:
+   the contract and runner exist; the open question is whether frontier models
+   outrank the specialized heuristics the way the 20B open-weights model did not.
 3. Extension to more markets/decades and sub-period stability analysis.
 
 ## Post-review status
