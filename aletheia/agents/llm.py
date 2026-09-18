@@ -169,13 +169,25 @@ def parse_llm_json(text: str) -> tuple[Optional[ParsedCall], Optional[str]]:
     ), None
 
 
-def default_completion(config: LlmConfig, prompt: str, timeout: float = 30.0) -> str:
-    """The one raising boundary: stdlib urllib POST to a chat completion."""
-    body = json.dumps({
+def default_completion(
+    config: LlmConfig, prompt: str, timeout: float = 30.0,
+    extra_body: Optional[dict] = None,
+) -> str:
+    """The one raising boundary: stdlib urllib POST to a chat completion.
+
+    `extra_body` merges provider-specific fields (e.g. Ollama options,
+    reasoning_effort) into the request; standard OpenAI endpoints ignore
+    what they don't know. Purely additive — None means unchanged wire
+    format, so existing tests and callers are unaffected.
+    """
+    body = {
         "model": config.model,
         "messages": [{"role": "user", "content": prompt}],
         "temperature": 0.0,
-    }).encode("utf-8")
+    }
+    if extra_body:
+        body.update(extra_body)
+    body = json.dumps(body).encode("utf-8")
     req = urllib.request.Request(
         f"{config.base_url.rstrip('/')}/chat/completions",
         data=body,
@@ -208,11 +220,13 @@ class LlmMember:
         config: Optional[LlmConfig] = None,
         completion_fn: Optional[Callable[[LlmConfig, str], str]] = None,
         name: str = "llm",
+        completion_kwargs: Optional[dict] = None,
     ) -> None:
         self.name = name
         self.horizon_days = horizon_days
         self.config = config  # None -> unconfigured; member abstains
         self.completion_fn = completion_fn or default_completion
+        self.completion_kwargs = completion_kwargs or {}
 
     # ------------------------------------------------------------------
     def forecast(self, snapshot: MarketSnapshot, symbol: str,
@@ -231,7 +245,8 @@ class LlmMember:
         prompt = build_prompt(snapshot, symbol, self.horizon_days,
                               member_names or [])
         try:
-            raw = self.completion_fn(self.config, prompt)
+            raw = self.completion_fn(
+                self.config, prompt, **self.completion_kwargs)
         except Exception as exc:  # noqa: BLE001 — the boundary absorbs all
             return abstain(f"LLM unavailable: {type(exc).__name__}")
         parsed, why = parse_llm_json(raw)
