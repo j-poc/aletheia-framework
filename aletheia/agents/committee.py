@@ -20,9 +20,15 @@ from typing import Optional
 
 from aletheia.agents.context import CommitteeContext, MAX_CONTEXT_SHIFT
 from aletheia.agents.gate import FalsificationGate
+from aletheia.agents.llm import LlmMember
 from aletheia.agents.skills import RegimeSkillBook
 from aletheia.calibration.ledger import DecisionLedger
-from aletheia.core.types import Forecast, MarketSnapshot, ThesisVerdict
+from aletheia.core.types import (
+    Forecast,
+    MarketSnapshot,
+    ThesisVerdict,
+    abstain_forecast,
+)
 
 
 class Agent(ABC):
@@ -45,12 +51,7 @@ class Agent(ABC):
 
 def _abstain(name: Optional[str], snapshot: MarketSnapshot, symbol: str,
              horizon_days: int, why: str) -> Forecast:
-    return Forecast(
-        symbol=symbol, horizon_days=horizon_days,
-        prob_up=0.5, expected_edge=0.0, confidence=0.0,
-        rationale=f"abstain: {why}", basis={}, issued_on=snapshot.as_of,
-        agent=name,
-    )
+    return abstain_forecast(name, snapshot, symbol, horizon_days, why)
 
 
 class QuantAgent(Agent):
@@ -306,6 +307,7 @@ class Committee:
         skill_book: Optional[RegimeSkillBook] = None,
         decision_bar: float = 0.56,
         bear_penalty: float = 0.12,
+        llm_member: Optional[LlmMember] = None,
     ) -> None:
         self.ledger = ledger
         self.quant = QuantAgent(horizon_days=horizon_days)
@@ -314,6 +316,12 @@ class Committee:
         self.judge = JudgeAgent(horizon_days=horizon_days, bear_penalty=bear_penalty)
         self.gate = FalsificationGate()
         self.skills = skill_book or RegimeSkillBook(decision_bar=decision_bar)
+        # Optional LLM member: same Forecast contract, graded and
+        # trust-weighted like every other member. When absent (or
+        # unconfigured), it issues no forecasts at all.
+        self.llm = llm_member
+        if self.llm is not None and self.llm.horizon_days != horizon_days:
+            self.llm.horizon_days = horizon_days
 
     # ------------------------------------------------------------------
     def convene(
@@ -331,10 +339,18 @@ class Committee:
 
         member_fs: list[Forecast] = []
         verdicts: dict[str, ThesisVerdict] = {}
+        member_names = ["quant", "bull", "bear"] \
+            + ([self.llm.name] if self.llm else [])
         for s in symbols:
             members = [self.quant.forecast(snapshot, s),
                        self.bull.forecast(snapshot, s),
                        self.bear.forecast(snapshot, s)]
+            # Optional LLM member: pre-registers and issues BEFORE the
+            # gate or judge run — its call is committed without seeing
+            # any other member's view, then graded like everyone else.
+            if self.llm is not None:
+                members.append(self.llm.forecast(
+                    snapshot, s, member_names=member_names))
             member_fs += members
             for f in members:
                 self.ledger.append("forecast", snapshot.as_of, {

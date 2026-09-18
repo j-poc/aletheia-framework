@@ -43,11 +43,18 @@ def cmd_backtest(args: argparse.Namespace) -> int:
 
     provider, symbols, start, end = _market_args(args)
     ledger = DecisionLedger()
+    llm_member = None
+    if args.llm:
+        from aletheia.agents.llm import LlmConfig, LlmMember
+
+        cfg = LlmConfig.from_env()  # None -> member abstains, run proceeds
+        llm_member = LlmMember(horizon_days=21, config=cfg)
     engine = DecisionEngine(
         provider=provider, symbols=symbols,
         constitution=Constitution(),
         config=EngineConfig(rebalance_every=args.rebalance_every),
         ledger=ledger,
+        llm_member=llm_member,
     )
     try:
         report = engine.run(start, end)
@@ -161,6 +168,10 @@ def main(argv: list[str] | None = None) -> int:
     b = sub.add_parser("backtest", help="run the committee walk-forward")
     add_market_flags(b)
     b.add_argument("--ledger-out", default=None)
+    b.add_argument("--llm", action="store_true",
+                   help="seat an LLM member (env: ALETHEIA_LLM_API_KEY / "
+                        "ALETHEIA_LLM_BASE_URL / ALETHEIA_LLM_MODEL; without "
+                        "a key it abstains on every call)")
     b.set_defaults(func=cmd_backtest)
 
     a = sub.add_parser("ablation", help="compare full system vs ablations")

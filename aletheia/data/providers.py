@@ -35,6 +35,8 @@ UA = (
 FRED_MAP = {
     "SP500": "SPX",        # S&P 500 index, daily close (last 10y)
     "NASDAQCOM": "NDX",    # Nasdaq Composite
+    "DJIA": "DJIA",        # Dow Jones Industrial Average (last 10y)
+    "NIKKEI225": "NIKKEI", # Nikkei 225 (daily, back to 1949)
     "VIXCLS": "VIX",       # CBOE volatility index
     "DGS10": "UST10Y",     # 10y Treasury yield
     "DGS2": "UST2Y",       # 2y Treasury yield

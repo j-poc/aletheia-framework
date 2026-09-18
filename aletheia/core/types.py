@@ -77,6 +77,27 @@ class ThesisVerdict:
         return not self.falsified
 
 
+def abstain_forecast(
+    agent: Optional[str],
+    snapshot: MarketSnapshot,
+    symbol: str,
+    horizon_days: int,
+    why: str,
+) -> "Forecast":
+    """The one honest non-call: zero confidence, never graded, never fused.
+
+    Shared by every committee member: an abstention is a first-class
+    forecast record (it flows to the ledger and is visible in telemetry)
+    but carries no probability content.
+    """
+    return Forecast(
+        symbol=symbol, horizon_days=horizon_days,
+        prob_up=0.5, expected_edge=0.0, confidence=0.0,
+        rationale=f"abstain: {why}", basis={}, issued_on=snapshot.as_of,
+        agent=agent,
+    )
+
+
 @dataclass(frozen=True)
 class ResolutionRecord:
     """The graded outcome of one forecast, as it lands in the ledger.

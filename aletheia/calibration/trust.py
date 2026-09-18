@@ -101,14 +101,17 @@ def trust_weight(
 
 @dataclass
 class TrustModel:
-    """Holds per-agent calibration records and computes weights."""
+    """Holds per-agent calibration records and computes weights.
+
+    `names` must cover every forecasting member (including optional ones
+    like "llm") so no agent's weight depends on accidental record order.
+    """
     names: Sequence[str]
     records: dict[str, CalibrationRecord] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         for n in self.names:
             self.records.setdefault(n, CalibrationRecord(name=n))
-
     def record_forecast(self, agent: str, prob: float, outcome: bool) -> None:
         """Grade one resolved forecast and update the agent's record."""
         if agent not in self.records:

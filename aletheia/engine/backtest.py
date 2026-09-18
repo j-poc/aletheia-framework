@@ -28,6 +28,7 @@ from datetime import date
 from typing import Optional
 
 from aletheia.agents.committee import Committee
+from aletheia.agents.llm import LlmMember
 from aletheia.agents.skills import regime_of
 from aletheia.calibration.ledger import DecisionLedger
 from aletheia.calibration.trust import TrustModel
@@ -62,6 +63,7 @@ class DecisionEngine:
         constitution: Optional[Constitution] = None,
         config: Optional[EngineConfig] = None,
         ledger: Optional[DecisionLedger] = None,
+        llm_member: Optional[LlmMember] = None,
     ) -> None:
         self.provider = provider
         self.symbols = symbols
@@ -72,8 +74,13 @@ class DecisionEngine:
         self.committee = Committee(
             ledger=self.ledger, horizon_days=self.cfg.horizon_days,
             decision_bar=self.cfg.threshold_prob_up,
+            llm_member=llm_member,
         )
-        self.trust = TrustModel(names=["quant", "bull", "bear", "judge"])
+        # every forecasting member has a trust record — the optional LLM
+        # member included, so its influence is earned exactly like the rest
+        member_names = ["quant", "bull", "bear", "judge"] \
+            + ([llm_member.name] if llm_member is not None else [])
+        self.trust = TrustModel(names=member_names)
         self.equity = self.cfg.initial_capital
         self.equity_curve: list[tuple[date, float]] = []
         self.positions: dict[str, float] = {}
