@@ -1,4 +1,4 @@
-# Twitter thread — Aletheia launch
+# Twitter thread, Aletheia launch
 
 Twelve tweets, hook first, honest negatives in the middle, CTA at the end. Numbers all match the merged report (rounded to 3 decimals for readability; the exec summary carries full precision).
 
@@ -14,7 +14,7 @@ Result: the rules beat it, but the machine grading it might be the real discover
 A thread 🧵
 
 **2/**
-First, what we built. Not a trading bot — a REFEREE.
+First, what we built. Not a trading bot, a REFEREE.
 
 The problem with AI finance agents today: they're judged on how good their reports sound. Confidence wins. "Don't take big risks" is a prompt suggestion a model can argue past.
 
@@ -33,7 +33,7 @@ The one rule that makes it all work:
 
 Every member must commit to a falsifiable number BEFORE debate. "62% up over the next 21 sessions."
 
-Then reality grades it. Net of trading costs — drift too small to trade doesn't count as being right.
+Then reality grades it. Net of trading costs, drift too small to trade doesn't count as being right.
 
 **5/**
 Now the experiment: one real AI model (gpt-oss:20b, open weights, running locally) vs four tiny hand-written rules. 390 graded forecasts over 8 years of the S&P.
@@ -43,7 +43,7 @@ Zero abstentions. Zero failures. Tamper-proof record of every call.
 **6/**
 What the AI was NOT: a market wizard.
 
-Raw up/down score: 66.8% — identical to EVERY other member. Not skill: the S&P just rose on ~67% of windows in this era. Any forecaster leaning "up" lands there. The market giveth the base rate.
+Raw up/down score: 66.8%, identical to EVERY other member. Not skill: the S&P just rose on ~67% of windows in this era. Any forecaster leaning "up" lands there. The market giveth the base rate.
 
 **7/**
 The exam was calibration: "70% sure" must mean right 70% of the time.
@@ -55,12 +55,12 @@ But there the order flipped: the AI (0.146) knew what it didn't know better than
 **8/**
 Final rank: LAST of five.
 
-Honest headline: a current-gen AI predicts markets about as well as — but no better than — rules written in an afternoon.
+Honest headline: a current-gen AI predicts markets about as well as, but no better than, rules written in an afternoon.
 
 And the system is NOT an alpha engine: it doesn't beat a boring index fund on risk-adjusted return. Published.
 
 **9/**
-More honesty: our pattern-finding "skills" feature helped in backtest (3 of 3 markets) — and exactly 0.0pp out-of-sample.
+More honesty: our pattern-finding "skills" feature helped in backtest (3 of 3 markets), and exactly 0.0pp out-of-sample.
 
 Our own instrumentation caught us fooling ourselves. That's what it's built for.
 
@@ -82,7 +82,7 @@ No worship, no exile. Influence rising and falling with measured performance.
 **12/**
 Everything's open: stdlib-only Python, 51 tests in CI, every number traceable to a hash-chained ledger you can verify yourself.
 
-The referee is the result. The forecaster can be anyone — including you.
+The referee is the result. The forecaster can be anyone, including you.
 
 Repo + technical report:
 https://github.com/j-poc/aletheia-framework
