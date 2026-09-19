@@ -1,15 +1,15 @@
 # Twitter thread, Aletheia launch
 
-Twelve tweets, hook first, honest negatives in the middle, CTA at the end. Numbers all match the merged report (rounded to 3 decimals for readability; the exec summary carries full precision).
+Revised research draft, September 19. The earlier LLM experiment is archived;
+current market numbers below come from the corrected engine.
 
 ---
 
 **1/**
-We gave an LLM a seat on an investment committee and let the market grade it for 8 years.
+We built an investment committee that grades its own forecasts against market outcomes.
 
-390 predictions. Every one graded against what actually happened, net of costs.
-
-Result: the rules beat it, but the machine grading it might be the real discovery.
+Then we found two errors in our backtest and reran the evidence. The corrected result
+is more useful than the original headline.
 
 A thread 🧵
 
@@ -36,53 +36,43 @@ Every member must commit to a falsifiable number BEFORE debate. "62% up over the
 Then reality grades it. Net of trading costs, drift too small to trade doesn't count as being right.
 
 **5/**
-Now the experiment: one real AI model (gpt-oss:20b, open weights, running locally) vs four tiny hand-written rules. 390 graded forecasts over 8 years of the S&P.
-
-Zero abstentions. Zero failures. Tamper-proof record of every call.
+An earlier local experiment seated gpt-oss:20b on the S&P. It made 390 forecasts;
+385 resolved, with no abstentions or retries. That archived member-calibration result
+has not been rerun through the corrected committee.
 
 **6/**
-What the AI was NOT: a market wizard.
-
-Raw up/down score: 66.8%, identical to EVERY other member. Not skill: the S&P just rose on ~67% of windows in this era. Any forecaster leaning "up" lands there. The market giveth the base rate.
+The model's archived Brier score was 0.2701. That tells us the member contract can
+grade a real model over years. It does not establish predictive edge or a current
+committee ranking.
 
 **7/**
-The exam was calibration: "70% sure" must mean right 70% of the time.
-
-All four rules beat the AI on accuracy (Brier 0.236–0.268 vs 0.270).
-
-But there the order flipped: the AI (0.146) knew what it didn't know better than the rule that beat it (0.182).
+The first bug dropped a held position's price move on rebalance days. We now mark
+the old holdings before placing a new order, and held weights drift with prices.
 
 **8/**
-Final rank: LAST of five.
-
-Honest headline: a current-gen AI predicts markets about as well as, but no better than, rules written in an afternoon.
-
-And the system is NOT an alpha engine: it doesn't beat a boring index fund on risk-adjusted return. Published.
+The second bug taught the skill book from every member forecast and used the market
+regime when each forecast resolved. It now learns only from the fused decision and
+the regime known when the call was made.
 
 **9/**
-More honesty: our pattern-finding "skills" feature helped in backtest (3 of 3 markets), and exactly 0.0pp out-of-sample.
-
-Our own instrumentation caught us fooling ourselves. That's what it's built for.
+Corrected skills: +2.5 percentage points on the S&P plus Nasdaq Composite,
+-0.6 on Dow, +0.6 on Nikkei, and 0.0 in the 1990–2017 Nikkei window.
+The prior 73% skill cell is invalid.
 
 **10/**
-What DID generalize is safety:
-
-28 years of Japanese stocks, including an 82% crash the market never recovered from.
-
-Index: −41.2%, 81.8% max drawdown.
-Governed committee: +7.7%, 6.5% max drawdown.
+Across the three recent markets, full-system maximum drawdown was 3.6% to 5.9%.
+An initial 25% index / 75% cash baseline drew down 10.2% to 12.1%.
+The system also earned less and had lower Sharpe in every market.
 
 **11/**
-But the trust machinery did its job perfectly:
-
-Trust 1.0 → 1.407 (promoted above its prior). Demoted through its bad stretch (2021–24 bear). Allowed to recover (2024–26).
-
-No worship, no exile. Influence rising and falling with measured performance.
+Low drawdown by itself does not prove the risk rules added value. The strategy often
+held less market exposure. An exposure-matched comparison is still needed.
 
 **12/**
-Everything's open: stdlib-only Python, 51 tests in CI, every number traceable to a hash-chained ledger you can verify yourself.
+58 tests pass; the ledger replays from its hash chain.
+Every U.S.-pair member lagged a rolling base-rate forecast on Brier.
+A research tool, not a proven edge. Raw inputs are not distributed;
+hashes are pinned in the report.
 
-The referee is the result. The forecaster can be anyone, including you.
-
-Repo + technical report:
+Repo:
 https://github.com/j-poc/aletheia-framework

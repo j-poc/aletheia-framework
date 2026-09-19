@@ -8,6 +8,10 @@ second person repeats this pass. Each finding: severity, status, evidence.
 
 ## Findings
 
+September 19 update: the earlier market matrix and skill statistics below are
+historical artifacts. The corrected results are in `docs/TECHNICAL_REPORT.md` and
+can be recomputed with `python3 -m aletheia.reproduce_report`.
+
 ### F1. Cost assumption misstated in the report, FIXED
 **Severity: medium (doc-code contradiction).** The report claimed grading is net of
 "5 bps side, 5 bps total." The code (`engine/backtest.py` line 108:
@@ -29,23 +33,44 @@ bottlenecks (weekends/holidays) a resolution window can shift by up to 4 session
 H-th *session* per symbol; deferred as it changes every graded number.
 
 ### F4. Skills edge does not replicate out-of-window, NEW RESULT, ADDED TO REPORT
-**Severity: high for the skills claim.** Nikkei 1990–2017 (untouched by all prior runs):
-skills on/off differ by **0.0pp** return (both +7.7%, Sharpe 0.15, maxDD 6.5%). The
-in-window effects (+1.0/+0.7/+0.5pp on 3 markets, 2018–2026) do not survive a regime the
-mechanism never saw. The honest statement: the skills mechanism's contribution is
-in-window regime timing, not a persistent edge.
+**Severity: high for the skills claim.** The corrected Nikkei 1990–2017 comparison
+still shows **0.0pp** skill contribution (both +9.69%, Sharpe 0.17, max drawdown
+6.64%). The corrected recent-market effects are +2.51pp on the U.S. pair,
+-0.62pp on Dow, and +0.56pp on Nikkei. There is no demonstrated persistent edge.
 
 ### F5. Bootstrap CIs widen honest uncertainty, ADDED TO REPORT
-Stationary bootstrap (2000 resamples, ~21-day blocks) 95% CIs on Sharpe:
-SPX+NDX [0.06, 1.30]; DJIA [0.16, 1.38]; Nikkei-1990s OOW [−0.22, 0.54].
+The corrected stationary bootstrap (2000 resamples, mean 21-session blocks) gives
+95% CIs on Sharpe: U.S. pair [0.04, 1.32], Dow [-0.18, 1.03], recent Nikkei
+[-0.23, 1.21], and 1990–2017 Nikkei [-0.21, 0.55].
 Every interval includes materially worse outcomes; the OOW interval includes 0.
 
-### F6. Look-ahead audit, CLEAN
-Checked: provider clips every series to `as_of`; skills distill only from ledger
-resolutions with `as_of >= forecast + horizon`; LLM prompt embeds only bars dated ≤
-decision date (test-enforced); no global state crosses runs. No violation found.
+### F6. Earlier look-ahead audit, SUPERSEDED
+The earlier pass correctly found observation-date clipping, but missed that skill
+resolutions were tagged with the regime at the resolution date. That label was used
+to train a lookup later queried with the regime at decision time. F9 fixes this.
+The FRED cache also stores current series values, not historical publication vintages,
+so a complete knowledge-time audit remains open.
 
-### F7. Verified artifacts
-- Ladder deltas in the report reproduce exactly from the saved 15-cell matrix.
-- `run_ledger.jsonl` verifies (hash chain OK, 8,328 entries).
-- Baselines (buy-and-hold, fixed-mix) recomputed from the same provider data as the engine.
+### F7. Earlier verified artifacts, HISTORICAL
+The old 15-cell matrix and 8,328-entry ledger remain hash-valid records of the old
+engine. They are superseded as evidence for current performance. The corrected
+report script uses the same active dates for the system and its simple baselines.
+
+### F8. Rebalance-day portfolio return omitted, FIXED
+**Severity: high for every performance comparison.** The decision cycle reset held
+positions' reference prices before the daily mark, dropping that day's return on
+every rebalance. It also left held weights fixed between orders without charging
+for the implicit daily rebalancing, and total return omitted the first order cost.
+The engine now marks prior holdings first, lets weights drift, applies orders at the
+close, and computes total return from initial capital. A steady-price-path check
+failed before the fix because held returns disappeared on rebalance days. Its final
+daily-rebalance regression passes after the fix. The full 15-cell market matrix was
+rerun from the local FRED cache.
+
+### F9. Skill evidence mixed members and used resolution-time regime, FIXED
+**Severity: high for the skill claim.** All 3,080 resolutions in the old U.S. pair
+ledger carried `skill_kind=committee`; the distiller consumed every member and the
+judge. The recorded regime came from the resolution snapshot, not from forecast
+issuance. Regression checks now require only fused judge decisions and the issue-time
+regime. The corrected U.S. pair book has 770 decision observations and 457 skill
+applications. The previous 73% skill cell is invalid.

@@ -110,8 +110,8 @@ class RegimeSkillBook:
             if e.kind != "resolution":
                 continue
             rec = ResolutionRecord.from_payload(e.payload)
-            if rec.confidence <= 0:
-                continue  # abstentions are never skill evidence
+            if rec.confidence <= 0 or rec.agent != "judge":
+                continue  # only issued committee calls are skill evidence
             key = (rec.regime, prob_bucket_of(rec.prob_up))
             st = self.stats.setdefault(
                 key, SkillStats(regime=key[0], bucket=key[1])
