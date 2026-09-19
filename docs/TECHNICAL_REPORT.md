@@ -7,33 +7,30 @@
 Multi-agent LLM systems for financial research are typically evaluated by output quality
 (benchmark passes, report readability), not by whether their probabilistic claims resolve.
 We built a decision engine in which every committee member, human-designed heuristic or
-LLM, must emit *pre-registered, gradeable probabilistic forecasts* that are scored against
-realized market outcomes net of trading costs, with influence (trust weights) earned purely
-through calibration track record. A constitutional risk layer (position caps, leverage,
-VaR, drawdown circuit breaker enforced daily) overrides any agent output. All decisions,
-vetoes, and resolutions are recorded in a hash-chained, tamper-evident ledger.
+LLM, must record gradeable probabilistic forecasts before outcomes are known. Forecasts
+are scored against realized market outcomes net of assumed trading costs. Member
+weights depend on historical Brier scores, but this version does not require a member
+to outperform a simple forecast baseline. A constitutional risk layer checks position caps,
+leverage, and VaR at rebalance, and the drawdown circuit breaker each session. All decisions,
+vetoes, and resolutions are recorded in a hash-linked ledger.
 
-Our headline results are deliberately mixed: across three equity markets (US large-cap,
-Dow, Nikkei; Sep 2018 – Aug 2026), the governance machinery **consistently contains
-drawdowns to 2.4–5.7%** (vs. 10–11% for a matched fixed-mix baseline, 31–37% for
-buy-and-hold), and one mechanism, shrinkage-gated regime skills, improves return on
-**3 of 3 markets** (median +0.7pp). However, the full system **fails to beat trivial
-baselines on risk-adjusted return** in 2 of 3 markets, and one design lever (a
-"mega-context" judge pass) *hurts* on our original market. We publish both. We also
-fill the cell this architecture exists to fill: a real LLM, graded by eight years of
-market outcomes through the member contract, **earns a durable, ranked seat, promoted
-above its prior, last of five members** (Section 5).
+After correcting rebalance accounting and the skill evidence path, the full system
+returned +25.7%, +6.3%, and +10.2% on the S&P 500 plus Nasdaq Composite, Dow, and
+Nikkei runs from late 2018 to August 2026. Maximum drawdowns were 3.6% to 5.9%, but
+Sharpe was below a simple initial 25% index and 75% cash portfolio in all three
+markets. Low drawdown alone does not establish that the constitutional risk rules add
+value: the system often holds less market exposure. Regime skills add return in two
+markets, subtract it in one, and make no difference in the 1990–2017 Nikkei run.
+An earlier local LLM experiment remains a historical member-calibration result; its
+committee-level numbers have not been rerun under this corrected engine.
 
 ## Positioning
 
-Open multi-agent finance stacks (TradingAgents, FinRobot, FinGPT) operationalize debate
-and research, but grade outputs with benchmarks or not at all; influence is asserted by
-prompt role, not earned by track record; risk limits are prompt instructions that a
-confident model can argue past. Aletheia inverts this: forecasting agents are graded by
-the market itself (Brier/log/ECE), weights derive from calibration with Bayesian
-shrinkage, and risk law executes in code between every proposal and every order. This is
-the superforecasting discipline (Tetlock) applied to machine forecasters, with
-constitutional-style hard limits.
+Aletheia combines three testable mechanisms: later market outcomes grade each
+probabilistic forecast, historical Brier scores change member weights with
+small-sample shrinkage, and code checks risk limits before orders. The current
+weight rule uses absolute scores, so a positive weight change does not establish
+skill above a simple base-rate forecast. The evaluation below tests that distinction.
 
 ## Architecture
 
@@ -41,121 +38,125 @@ constitutional-style hard limits.
 |---|---|---|
 | Calibration-trust committee | Every member emits `(prob_up, expected_edge, confidence)`; graded net-of-cost; `trust_weight = f(mean Brier, n)` with shrinkage toward prior | `calibration/trust.py` |
 | Adversarial falsification | Dedicated bear agent + binary thesis gate: theses die before capital allocation | `agents/gate.py` |
-| Constitutional risk | 7 articles enforced daily in code; every veto named and logged; no agent can override | `core/constitution.py` |
-| Decision ledger | Hash-chained append-only JSONL; tamper-evident; observability is replay | `calibration/ledger.py` |
+| Constitutional risk | Order limits checked at rebalance; drawdown breaker checked daily; every veto named and logged | `core/constitution.py` |
+| Decision ledger | Hash-linked JSONL with chain verification; a retained external head is needed to detect full recomputation | `calibration/ledger.py` |
 | Regime skills | Recurring distillation of resolved decisions into (regime, probability-bucket) base rates; fires only when shrunk hit-rate clears the decision bar | `agents/skills.py` |
 | LLM member (opt-in) | OpenAI-compatible endpoint, env-configured; every failure mode (no key, network, timeout, malformed, out-of-range) resolves to an explicit abstention | `agents/llm.py` |
 
-Design invariants: walk-forward only (point-in-time snapshots; skills see resolved
-history only); deterministic reruns (byte-identical reports); zero runtime dependencies
-(stdlib only); everything decision-relevant is in the ledger.
+The engine clips observations to each decision date and lets skills read only resolved
+history. It does not retain historical FRED publication vintages, so a full
+knowledge-time guarantee for macro series is unverified. Runs from the same cached
+input are deterministic. The input bytes are identified by hashes in
+[`data/source_manifest.json`](../data/source_manifest.json), but are not distributed.
+Runtime dependencies are limited to the Python standard library.
 
 ## Evaluation methodology
 
-- **Data**: FRED official keyless daily series (S&P 500, Nasdaq Composite, DJIA, Nikkei
-  225, VIX, 2y/10y Treasury). Decision window Sep 2018 – Aug 2026; 60-session warmup;
-  rebalance every 5 sessions; 21-session forecast horizon.
+- **Data**: cached FRED daily series (S&P 500, Nasdaq Composite, DJIA, Nikkei 225,
+  VIX, 2y/10y Treasury). Requested window Sep 2018 to Aug 2026; trading starts after
+  a 60-session warmup. The active start is Nov 28 for U.S. markets and Nov 30 for
+  Nikkei. Rebalance every 5 sessions; forecast horizon nominally 21 sessions.
 - **Grading**: a forecast counts as correct only if the realized move exceeded the
   round-trip cost (10 bps: 5 bps per side), agents earn credit for *tradable*
   edge, not epsilon drift.
-- **No test-set tuning**: all constants (VIX thresholds 14/30, curve slope 1.5pp, skill
-  shrinkage n=30, Kelly fraction 0.5, position cap 20%, VaR 2%) were fixed from design
-  reasoning before measurement and are disclosed in source. Ablations are config toggles.
-- **Reproduction**: single command, deterministic; the ladder below reproduces from the
-  warm cache in ~15 s.
+- **Portfolio accounting**: yesterday's held weights earn today's close-to-close move;
+  weights then drift with prices. At today's close, orders change weights and pay 5 bps
+  on turnover. Cash earns zero; index dividends, funding, spread, impact, and tax are
+  omitted. This is a price-index research simulation, not an executable strategy.
+- **Baselines**: buy equal initial amounts of the named indices at the first active
+  session and hold; or buy 25% of that portfolio and keep 75% cash at zero interest.
+  Baselines use the same active dates as the engine and omit trading costs.
+- **Uncertainty**: stationary bootstrap of daily portfolio returns, 2,000 resamples,
+  mean block length 21 sessions, fixed seed 7. These intervals describe sampling
+  variation of Sharpe, not confidence in a live strategy.
+- **Reproduction**: `python3 -m aletheia.reproduce_report` verifies the local
+  files against the source manifest before emitting the market matrix. A fresh
+  FRED download may differ from these inputs because the series can change.
 
 ## Results
 
-### 1. Mechanism ladder across markets (return deltas vs. full system)
+### 1. Mechanism ladder
 
-Removing one mechanism at a time; positive number = the mechanism contributes return.
+Each row removes one lever from the full system. Returns are total returns over the
+active window; a difference is a path observation, not a causal estimate across markets.
 
-| Removed lever | S&P+NDX | DJIA | Nikkei | Record |
-|---|---|---|---|---|
-| − Skills | **−1.0pp** | **−0.7pp** | **−0.5pp** | skills help 3/3, median +0.7pp |
-| − Macro knowledge (VIX/curve) | −3.3pp ret / **+0.7pp DD** | −0.1pp ret / **+0.8pp DD** | −0.1pp ret / **+0.5pp DD** | macro reduces maxDD 3/3 |
-| − Mega-context judge pass | −1.9pp ret / −0.1pp DD | −0.1pp ret / +0.4pp DD | −0.1pp ret / +0.2pp DD | **context does not pay** |
+| Market | Full | No context | No macro | No skills | No three levers |
+|---|---:|---:|---:|---:|---:|
+| S&P 500 + Nasdaq Composite | +25.69% | +29.99% | +29.86% | +23.18% | +27.39% |
+| Dow | +6.31% | +6.83% | +6.96% | +6.93% | +7.89% |
+| Nikkei | +10.24% | +9.93% | +10.88% | +9.68% | +10.15% |
 
-Macro awareness is a risk decision, not a return decision: it buys 0.5–0.8pp of
-drawdown reduction for ≈0 return cost on DJIA/Nikkei, but costs 3.3pp of return on the
-S&P+NDX book. The mega-context pass, implemented because the "one agent with full
-context" recipe is standard agent-building advice, *degrades* the original market and
-is neutral elsewhere. We keep it behind a toggle and report it as a negative result.
+Skills contribute +2.51 percentage points on the U.S. pair, -0.62 on Dow, and +0.56
+on Nikkei. The context pass costs 4.30 points on the U.S. pair. Macro inputs lower
+max drawdown in all three runs by 0.77 to 1.12 points, but none of these results
+establish a stable improvement out of sample.
 
-### 2. Baseline comparison (the honest table)
+### 2. Simple baselines on identical active dates
 
-| Market | System | Total | Sharpe | maxDD |
-|---|---|---|---|---|
-| S&P+NDX | buy-and-hold | +191.9% | 0.82 | 33.9% |
-| | fixed 25% index + cash | +48.0% | **0.84** | 10.2% |
-| | **Aletheia (full)** | +21.5% | 0.66 | **5.7%** |
-| DJIA | buy-and-hold | +117.9% | 0.64 | 37.1% |
-| | fixed 25% + cash | +29.5% | 0.65 | 10.7% |
-| | **Aletheia (full)** | +10.0% | **0.75** | **2.4%** |
-| Nikkei | buy-and-hold | +221.5% | 0.82 | 31.3% |
-| | fixed 25% + cash | +55.4% | 0.78 | 10.7% |
-| | **Aletheia (full)** | +12.2% | 0.65 | **4.8%** |
+| Market | Portfolio | Total | Sharpe | Max drawdown |
+|---|---|---:|---:|---:|
+| S&P 500 + Nasdaq Composite | Equal initial buy and hold | +220.90% | 0.81 | 31.94% |
+| | Initial 25% index / 75% cash | +55.22% | 0.80 | 12.11% |
+| | Aletheia full | +25.69% | 0.67 | 5.48% |
+| Dow | Buy and hold | +109.67% | 0.60 | 37.09% |
+| | Initial 25% index / 75% cash | +27.42% | 0.62 | 10.37% |
+| | Aletheia full | +6.31% | 0.43 | 3.64% |
+| Nikkei | Buy and hold | +196.68% | 0.76 | 31.27% |
+| | Initial 25% index / 75% cash | +49.17% | 0.74 | 10.15% |
+| | Aletheia full | +10.24% | 0.50 | 5.88% |
 
-Read plainly: the system **wins on drawdown containment everywhere** (2.4–5.7% through
-COVID-19 and the 2022 bear) and **wins Sharpe on 1 of 3 markets**. It loses to a
-fixed index/cash mix on risk-adjusted return elsewhere. Anyone evaluating this as an
-alpha machine should stop reading here, that is not the claim.
+The system's lower drawdowns coexist with lower returns and lower Sharpe in every
+market. The 25% benchmark is a simple comparison, not an exposure-matched control.
+These results support neither an alpha claim nor an isolated claim that the
+constitution caused the drawdown difference.
 
-### 3. Calibration behavior, and a decomposition that cuts against us
+### 3. Corrected calibration and skill evidence
 
-Mean Brier across 3,080+ graded forecasts (net-of-cost grading): 0.2547 / 0.2686 / 0.2611
-(S&P+NDX / DJIA / Nikkei), similar across markets, all in the "better than chance, far
-from clairvoyant" band. The LLM member's eight-year grade lands in the same band and
-next to the same peers (Section 5).
-trust weights migrate measurably over the window (e.g., the bull agent earned weight
-through the 2019–2021 expansion and ceded it in 2022; a poorly calibrated quant was
-demoted to 0.671 in synthetic runs).
+Mean Brier scores for the full runs are 0.2550, 0.2685, and 0.2617, respectively.
+The U.S. pair has 3,080 graded member and judge forecasts, but the skill book now
+uses only 770 resolved fused judge decisions. The old 1,071-observation "calm/high"
+cell pooled member forecasts and used the regime at resolution. It is invalid as
+decision-time skill evidence. The corrected calm/high cell is 164 hits in 262
+decisions (62.6% before shrinkage), with the regime measured when each call was made.
+The corrected run logs 457 skill applications. Its observed return effect is mixed
+across markets and zero in the historical Nikkei window.
 
-The skill book's headline cell, "calm regime, high-confidence call, 73.1% net-of-cost
-hit rate (n=1071)", **does not survive conditioning**: the unconditional calm-regime
-hit rate is 73.8%, so the probability-bucket contribution is −0.7pp (z = −0.37). Across
-all eight populated (regime, bucket) cells with n ≥ 30, **zero exceed |z| = 2.8**
-(α ≈ 0.005 under a Bonferroni-style correction; largest |z| = 2.78 for stressed/high,
-which is *below* its regime base by 21pp). The global net-of-cost up-rate is 65.2%.
+The trust weights use each member's absolute Brier score. To test whether this
+reflects useful forecasting skill, we compared each issued call with a rolling
+base-rate probability `(prior up outcomes + 1) / (prior resolved outcomes + 2)`.
+Only outcomes resolved by the issue date entered that baseline. On the 385
+resolved calls per symbol, the S&P 500 baseline scored 0.2322 Brier versus
+0.2684, 0.2364, 0.2393, and 0.2439 for quant, bull, bear, and the fused judge.
+On Nasdaq Composite, the baseline scored 0.2431 versus 0.2826, 0.2505, 0.2555,
+and 0.2636. Lower is better. Every committee forecast scored worse than this
+simple comparator on both symbols. The current rule can still raise a member's
+weight above its prior; that rise is not proof of predictive skill.
 
-Honest interpretation: the skills mechanism's return contribution (3/3 markets above)
-comes from **regime timing**, it steers the committee toward deploying in calm regimes,
-where up-drifts clear the cost bar ~74% of the time, not from bucket-level predictive
-power. The base-rate layer works as a deployment filter, not a probability refiner.
-Whether that timing edge persists out-of-window is untested.
+### 4. Longer Nikkei window and uncertainty
 
-### 4. Out-of-window validation and uncertainty (added post-review)
+With the same 60-session warmup, the active Nikkei window is Apr 3, 1990 to
+Dec 29, 2017. Both skill variants return +9.69%, Sharpe 0.17, with 6.64% max
+drawdown. Buy and hold from that same active start returns -20.84% with 78.75%
+max drawdown; the initial 25% index / 75% cash baseline returns -5.21% with
+21.88% max drawdown. This is evidence of low realized exposure and loss containment
+in this particular history. It does not isolate the contribution of each risk rule.
 
-**The skills timing edge does not replicate out-of-window.** On Nikkei 1990–2017, 28
-years the mechanism never saw, spanning Japan's entire post-bubble bear, skills-on and
-skills-off are identical: **+7.7% return, Sharpe 0.15, maxDD 6.5% both**. The in-window
-3/3 record (Section 1) should be read as regime-fit, not persistent edge.
+Stationary-bootstrap 95% intervals on full-system Sharpe are [0.04, 1.32] for the
+U.S. pair, [-0.18, 1.03] for Dow, [-0.23, 1.21] for Nikkei 2018–2026, and
+[-0.21, 0.55] for Nikkei 1990–2017. All include much weaker outcomes than their
+point estimates. No difference-versus-baseline interval has been computed.
 
-What did generalize is the risk layer: over 1990–2017 the governed committee returned
-+7.7% with 6.5% max drawdown while the Nikkei index itself lost **−41.2%** with an
-**81.8% max drawdown**. In a 28-year window where the index never recovered its 1989
-high, the constitution kept the book alive and flat-ish, the intended behavior when no
-edge exists.
+### 5. Archived local LLM experiment
 
-**Uncertainty is wider than point estimates suggest.** Stationary-bootstrap 95% CIs on
-Sharpe (2,000 resamples, ~21-day blocks): SPX+NDX 2018–2026 [0.06, 1.30]; DJIA 2018–2026
-[0.16, 1.38]; Nikkei 1990–2017 [−0.22, 0.54]. No headline Sharpe in this report should
-be quoted without its interval; the OOW interval includes zero.
+The September 18 experiment seated `gpt-oss:20b` through the member contract on
+the S&P 500. It made 390 calls, with 385 forecasts resolved, no abstentions, and
+no retries. The archived ledger verifies as a hash chain. These observations came
+from the earlier engine, before the accounting and skill corrections above. The
+LLM's own forecast scores can be read as historical calibration evidence; the
+committee's ranking and portfolio result must be rerun before being attributed
+to the corrected build.
 
-### 5. An LLM graded by the market: the empty cell, filled
-
-**A current-generation LLM earns a seat on the committee, and loses the top spot.**
-We seated an open-weights 20B reasoning model (`gpt-oss:20b` served locally via Ollama,
-`reasoning_effort: low`) through the standard member contract: pre-registered
-probabilistic forecasts committed before evidence review, graded net-of-cost against
-21-session S&P 500 outcomes across the full Sep 2018 – Aug 2026 window, trust-weighted
-by the same calibration rule as the built-ins. 390 calls, 0 retries, 0 abstentions; the
-resulting 5,044-entry ledger verifies end-to-end, with the SHA-256 chain recomputed
-independently of the framework's own loader. (Method note: cloud free tiers proved
-non-viable, Gemini's free tier now allows ~20 requests/day, so the run executed
-locally, which also makes it exactly reproducible by anyone with the weights.)
-
-| member | n | Brier | ECE | final trust weight |
+| Archived member | n | Brier | ECE | final trust weight |
 |---|---|---|---|---|
 | quant | 385 | 0.2684 | 0.1817 | 1.416 |
 | bull | 385 | **0.2364** | 0.1401 | **1.590** |
@@ -163,55 +164,44 @@ locally, which also makes it exactly reproducible by anyone with the weights.)
 | judge | 385 | 0.2482 | 0.1118 | 1.526 |
 | **llm** | 385 | 0.2701 | 0.1458 | 1.407 |
 
-The committee **promoted the LLM above its uniform prior**: its weight rose from 1.0 to
-1.407 and sat above the prior in 374 of 390 decisions (dipping to 0.863 early, peaking
-at 1.473). But every specialized built-in out-graded it, and it finished last of five
-in earned influence. It is demonstrably not noise (0.50 would be guessing; its
-net-of-cost hit rate matches the book at 0.668) and better calibrated than the quant
-member (ECE 0.146 vs 0.182), while carrying the worst Brier of the five.
-
-The trajectory is the interesting part: per-third Brier runs **0.2621 → 0.2977 →
-0.2508**, degradation concentrated in the 2021–2024 bear/chop, its best grading in
-2024–2026. The trust mechanism did precisely what it exists to do: demoted the member
-through its worst regime, never discarded it, and priced its recovery. Neither
-worship nor exile, a real, ranked, earned seat.
-
-Limitations, stated plainly: this is an open-weights 20B model, not a frontier API
-model; one market; and the grading is the committee's own rule. Whether frontier
-models outrank the specialized heuristics is the open question, and the contract +
-runner exist to answer it.
+In that archived run, the LLM's Brier was 0.2701 and ECE 0.1458. Its raw trust
+weight ended at 1.407. The experiment shows that the member contract can grade a
+local model over a long history. It does not show model edge, a current committee
+ranking, or a current portfolio result. One model and one market are insufficient
+for a broader model comparison.
 
 ### 6. Negative results (published deliberately)
 
-1. The mega-context judge fusion (all-member + macro + cross-book context, bounded
-   ≤10pp) reduced returns on the original market and is neutral-to-negative elsewhere.
-2. The full system does not dominate trivial baselines on Sharpe in 2 of 3 markets.
-3. An early adversarial gate design was a logical trap (any bear pressure ≥ the strict
-   bar automatically breached it, killing 88/89 theses); the fix (gradient bar) is
-   documented because such incentive traps are the failure mode this architecture exists
-   to catch, including in itself.
+1. The full system loses to the initial 25% index / 75% cash baseline on Sharpe
+   in all three 2018–2026 markets.
+2. Skills help on two markets, hurt on Dow, and make no difference in the longer
+   Nikkei window. The previous 73% skill claim used invalid evidence.
+3. The context pass reduces return by 4.3 percentage points on the U.S. pair.
 
 ## Limitations
 
-- Three 8-year market histories, one run per cell; no confidence intervals yet (block
-  bootstrap is planned). Windows overlap in regime (all contain COVID and the 2022 bear).
-- All thresholds hand-set and disclosed; a sensitivity ridge over them is planned.
-- The skill timing edge (Section 3) has not been tested out-of-window or on longer
-  histories; the Nikkei series extends to 1949 and is the natural out-of-sample test.
-- The LLM grading result (Section 5) is one open-weights 20B model, one market, graded
-  under the committee's own rule; a frontier-API member and additional markets are
-  untested. The member itself is fully governed (graded, weighted, abstention-only
-  failure) in all cases.
-- 5 bps transaction costs, index data only, USD-rate macro applied to the Nikkei book.
+- The three recent market histories overlap in regime; each mechanism has one run
+  per market. Bootstrap intervals do not correct design selection or multiple testing.
+- FRED observations are clipped by date but not by historical release vintage.
+  Macro revision leakage remains possible. The 21-session resolution date can also
+  shift on symbol-calendar gaps; see `REVIEW_FINDINGS.md`.
+- Thresholds are hand-set. There is no exposure-matched or equal-risk control,
+  sensitivity ridge, dividends, financing, or live execution evidence.
+- Nikkei uses U.S. interest-rate inputs. The LLM comparison is archived and has not
+  been rerun on the corrected engine.
+- The exact FRED cache used here is local and untracked. Reproducing these exact
+  numbers requires the same input bytes, identified in the source manifest. The
+  underlying series carry third-party rights; the raw files are not distributed.
+  The ledger has no externally anchored head.
 
 ## Reproduction
 
 ```bash
 pip install .[dev]
-python -m pytest tests/ -q                  # 51 tests
-python -m aletheia.cli backtest --start 2018-09-01 --end 2026-08-31 --ledger-out run_ledger.jsonl
-python -m aletheia.cli report --path run_ledger.jsonl   # trust evolution, vetoes, skills, replayed from the ledger
-python -m aletheia.cli verify-ledger --path run_ledger.jsonl
+PYTHONDONTWRITEBYTECODE=1 python3 -m pytest tests/ -q -p no:cacheprovider
+PYTHONDONTWRITEBYTECODE=1 python3 -m aletheia.reproduce_report > corrected_report.json
+python3 -m aletheia.cli backtest --start 2018-09-01 --end 2026-08-31 --ledger-out corrected_ledger.jsonl
+python3 -m aletheia.cli verify-ledger --path corrected_ledger.jsonl
 ```
 
 ## What we would want from a lab collaboration
@@ -225,9 +215,7 @@ python -m aletheia.cli verify-ledger --path run_ledger.jsonl
 
 ## Post-review status
 
-A structured review pass (see `REVIEW_FINDINGS.md`) corrected two doc-code
-contradictions (cost assumption 10 bps round trip, per-market Brier range), documented a
-≤4-session resolution-date wobble, added the out-of-window validation and bootstrap CIs
-above, and found the look-ahead surfaces clean (provider clipping, skill distillation,
-prompt construction, resolution timing). The skills out-of-window null (F4) supersedes
-the in-window skills record wherever the two conflict.
+The September 19 correction fixed rebalance-day return omission, drifted held weights,
+included initial order costs in total return, and made skill evidence use only fused
+decisions with the regime known at issue time. The previous market matrix and skill
+cell are superseded by the numbers above. `REVIEW_FINDINGS.md` records the findings.

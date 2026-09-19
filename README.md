@@ -3,7 +3,7 @@
 **A calibration-governed AI investment framework.**
 
 > **Evaluating this research?** Start with [`docs/TECHNICAL_REPORT.md`](docs/TECHNICAL_REPORT.md),
-> the lab-grade write-up with cross-market results, trivial-baseline comparisons, negative
+> the research write-up with cross-market results, simple-baseline comparisons, negative
 > results, and limitations. This README documents the system; the report grades it.
 
 Most "AI investing" stacks today, including the multi-agent research patterns emerging from
@@ -16,13 +16,13 @@ Aletheia is that missing layer, built as a complete decision engine:
 
 | Mechanism | What it does | Where |
 |---|---|---|
-| **Calibration-trust committee** | Every agent emits a *gradeable probabilistic forecast*. Outcomes are scored (Brier, log score, ECE) and each agent's voting weight is its earned track record, shrunk toward the prior while samples are small. Agents that are confidently wrong get demoted, automatically. The judge fuses member votes with a **bounded mega-context** (macro state, regime, cross-symbol conviction, skill recall; ≤10pp total shift, every adjustment logged). | `aletheia/calibration/trust.py`, `aletheia/agents/committee.py`, `aletheia/agents/context.py` |
+| **Calibration-trust committee** | Every agent emits a *gradeable probabilistic forecast*. Outcomes are scored (Brier, log score, ECE); voting weights respond to absolute historical Brier scores, shrunk toward the prior while samples are small. The present rule does not require skill above a base-rate forecast. The judge fuses member votes with bounded context (macro state, regime, cross-symbol conviction, skill recall; ≤10pp total shift, every adjustment logged). | `aletheia/calibration/trust.py`, `aletheia/agents/committee.py`, `aletheia/agents/context.py` |
 | **Adversarial falsification gate** | A dedicated bear agent exists to *kill* theses, not to balance debate. A thesis only reaches capital if it survives: bear pressure below the bar AND no contradictory quant momentum evidence. | `aletheia/agents/gate.py` |
 | **Constitutional risk layer** | Seven articles of hard risk law, position caps, leverage cap, falsification gate, drawdown circuit breaker (enforced **daily**, not just at rebalance), cooldown, daily VaR cap, and a drawdown-budget scaler. Enforced in code on the order pipeline; no agent can argue past it, and every veto is logged. | `aletheia/core/constitution.py` |
-| **Tamper-evident decision ledger** | Every forecast, thesis, veto, order and resolution is hash-chained (sha256, prev-hash linked) into an append-only JSONL ledger. Rewrite history and `verify()` breaks. | `aletheia/calibration/ledger.py` |
-| **Walk-forward governance engine** | The `Committee` owns the decision cycle (members, gate, judge fusion, skill recall); the engine owns execution: sizing, constitutional enforcement every session, order/cost simulation, and forecast grading. Point-in-time data, no look-ahead, deterministic reruns. | `aletheia/engine/backtest.py` |
-| **Regime skill book** | A recurring job distills the ledger's *resolved committee decisions* into regime-conditional base rates ("calm regime + high-confidence call → 73% net-of-cost hit rate"). Recalled walk-forward-only, shrunk to the prior, and every application is logged. | `aletheia/agents/skills.py` |
-| **LLM member (opt-in)** | A frontier model seats on the committee through the *same* Agent contract: pre-registered probabilistic forecast, graded and trust-weighted like everyone else. Every failure mode, missing key, network error, timeout, malformed output, out-of-range probability, resolves to an explicit abstention, never an exception and never a fabricated number. | `aletheia/agents/llm.py` |
+| **Hash-linked decision ledger** | Every forecast, thesis, veto, order, and resolution is linked by SHA-256. `verify()` catches broken links or altered entries; detecting a complete recomputation requires a separately retained head hash. | `aletheia/calibration/ledger.py` |
+| **Walk-forward governance engine** | The `Committee` owns forecasts, gating, fusion, and skill recall. The engine owns daily marking and drawdown checks, plus sizing, other risk checks, order costs, and grading at rebalance. Observations are clipped to the decision date; historical FRED release vintages are not retained. | `aletheia/engine/backtest.py` |
+| **Regime skill book** | Distills resolved fused decisions by the regime known when each forecast was issued. It sees only resolved history, shrinks rates to a prior, and logs every application. The corrected book has 770 decision observations in the U.S. pair run. | `aletheia/agents/skills.py` |
+| **LLM member (opt-in)** | An OpenAI-compatible model seats on the committee through the *same* agent contract: its probabilistic forecast is recorded before the outcome, then graded and weighted like the built-in members. Missing configuration, network error, timeout, malformed output, and out-of-range probability produce an explicit abstention. | `aletheia/agents/llm.py` |
 | **Ledger-native observability** | Trust-weight evolution, veto breakdown by article, and the live skill book, all replayed from the hash-chained ledger itself, not a parallel telemetry pipeline. | `aletheia/observability.py` |
 
 ```
@@ -30,7 +30,7 @@ Aletheia is that missing layer, built as a complete decision engine:
                       │            DataProvider              │
                       │   FRED (real, keyless) / Synthetic   │
                       └──────────────┬───────────────────────┘
-                                     │ point-in-time snapshot
+                                     │ observation-date-clipped snapshot
         ┌────────────────────────────┼────────────────────────────┐
         │                     DECISION DAY                        │
         │  quant ─┐                                               │
@@ -53,7 +53,7 @@ Aletheia is that missing layer, built as a complete decision engine:
 
 ```bash
 # full committee on real market data (FRED: S&P 500 + Nasdaq, ~8 years)
-python3 -m aletheia.cli backtest --ledger-out run_ledger.jsonl
+python3 -m aletheia.cli backtest --start 2018-09-01 --end 2026-08-31 --ledger-out corrected_ledger.jsonl
 
 # offline, fully reproducible synthetic market
 python3 -m aletheia.cli backtest --synthetic --seed 7
@@ -62,10 +62,13 @@ python3 -m aletheia.cli backtest --synthetic --seed 7
 python3 -m aletheia.cli ablation --synthetic
 
 # verify a decision ledger's integrity
-python3 -m aletheia.cli verify-ledger --path run_ledger.jsonl
+python3 -m aletheia.cli verify-ledger --path corrected_ledger.jsonl
 
 # observability report, replayed from the ledger
-python3 -m aletheia.cli report --path run_ledger.jsonl
+python3 -m aletheia.cli report --path corrected_ledger.jsonl
+
+# recompute the report's market matrix from the exact locally held input files
+python3 -m aletheia.reproduce_report
 
 # run the test suite
 python3 -m pytest tests/ -q
@@ -91,55 +94,52 @@ should record.
 
 ## Honest results
 
-All numbers below are reproducible today with the quickstart commands on a warm FRED cache
-(`--start 2018-09-01 --end 2026-08-31`), deterministic to the last byte.
+The current market matrix below can be rerun with
+`python3 -m aletheia.reproduce_report` from the exact FRED cache files listed in
+[`data/source_manifest.json`](data/source_manifest.json). The raw source files
+are not distributed because their reuse rights are not established.
 
-**Real data (FRED, S&P 500 + Nasdaq, Sep 2018 – Aug 2026), full system:**
-**+21.5% total return, Sharpe 0.66, max drawdown 5.7%** (constitution limit: 15%, never
-breached, including through the 2020 crash and the 2022 bear). 390 committee decisions,
-500 vetoes, 8,328 ledger entries, 3,080 graded forecasts, 59.4% directional hit rate,
-mean Brier 0.2547.
+**Corrected real-data run (FRED, S&P 500 + Nasdaq Composite, active window
+Nov 2018 to Aug 2026):** +25.7% total return, Sharpe 0.67, max drawdown 5.5%.
+The comparable initial 25% index / 75% cash baseline returned +55.2%, Sharpe 0.80,
+with 12.1% max drawdown. Across the Dow and Nikkei runs, the full system also had
+lower drawdown and lower Sharpe than this simple baseline. Lower exposure is part of
+the drawdown explanation; these comparisons do not isolate the risk layer's effect.
 
-**Grading is net of trading costs**: a forecast only counts as right if the move exceeded
-the round-trip cost of acting on it, agents earn credit for tradable edge, not epsilon
-drift. The regime skill book fired 539 times; its strongest skill learned "calm regime,
-high-confidence call: 783/1071 = 73% net-of-cost hit rate."
+**Grading is net of assumed trading costs**: a forecast counts as right if the move
+exceeds the 10 basis point round-trip threshold. The corrected U.S. pair run has
+457 skill applications, based only on resolved fused decisions.
 
-**The performance ladder** (one lever removed at a time; `EngineConfig` toggles):
+**The corrected performance ladder** (one lever removed at a time):
 
 ```
-V4 full: skills + macro + context     ret +21.46%  sharpe 0.66  maxDD 5.69%  vetoes 500
-  − context (judge sees only members) ret +23.37%  sharpe 0.70  maxDD 5.79%  vetoes 522
-  − macro (agents blind to VIX/curve) ret +24.73%  sharpe 0.71  maxDD 6.36%  vetoes 543
-  − skills (no recurring plays)       ret +20.47%  sharpe 0.64  maxDD 5.48%  vetoes 452
-V3 baseline (no recipe levers)        ret +22.60%  sharpe 0.67  maxDD 5.93%  vetoes 503
+Full: skills + macro + context        ret +25.69%  sharpe 0.67  maxDD 5.48%
+  no context                          ret +29.99%  sharpe 0.75  maxDD 5.82%
+  no macro                            ret +29.86%  sharpe 0.73  maxDD 6.60%
+  no skills                           ret +23.18%  sharpe 0.64  maxDD 5.34%
+  no context, macro, or skills        ret +27.39%  sharpe 0.71  maxDD 5.85%
 ```
 
-Honest reading (one market history is n=1, re-run the ladder per period before deciding):
+Skills add 2.5 percentage points on this path, subtract 0.6 points on Dow, add 0.6
+points on Nikkei, and add nothing on the 1990–2017 Nikkei holdout. The context pass
+reduces the U.S. pair's return by 4.3 points. These are observations from historical
+paths, not evidence of persistent edge.
 
-* **Skills are the consistent winner** (+1.0pp here, the top performer in every ladder we
-  have run): accumulated, shrinkage-gated recurring plays pay.
-* **Macro knowledge buys tail protection, not return**: VIX-aware bears and curve-aware
-  bulls gave up ~3.3pp of return for ~0.7pp less max drawdown. Whether that trade is right
-  depends on your risk budget, not your backtest.
-* **The mega-context judge pass costs ~1.9pp on this path**, kept in place because it is
-  bounded (≤10pp), auditable (every adjustment in the ledger), and one path is n=1. Every
-  lever is a toggle; publish what the grader says, not what the design hoped.
+**Synthetic (regime-switching GBM):** useful for integration checks, not evidence of
+market edge. See the [technical report](docs/TECHNICAL_REPORT.md) for the corrected
+matrix, baselines, uncertainty intervals, and limitations. Recompute them with
+`python3 -m aletheia.reproduce_report` from the cached FRED data.
 
-**Synthetic (regime-switching GBM):** near-flat returns by design, the market has almost
-no exploitable edge, and a well-governed committee *should* refuse to bleed. Ablations show
-the constitution is what contains tail risk (max DD 2.8% → 5.2% when disabled).
+The demonstrated result is a working forecasting and risk-governance research system.
+Its investment advantage remains unproven. In the U.S. pair run, all members and
+the fused judge scored worse than a rolling base-rate forecast that used only
+outcomes resolved by each decision date; see the [technical report](docs/TECHNICAL_REPORT.md).
 
-Read: Aletheia optimizes *decision quality per unit of risk*, not headline return. The
-calibration ledger is the product, the equity curve is a byproduct.
+## What the component comparisons show
 
-## Best-performing agents: the applied recipe
-
-Applying the production-agent performance recipe (mega-context over chained
-summaries; whole-domain knowledge over narrow feeds; skills at run start) to
-Aletheia produced three mechanisms, and, more importantly, the **measured
-performance ladder** above, reproduced warm and published verbatim, including
-the levers that didn't pay.
+The corrected comparisons above measure the contribution of context, macro inputs,
+and skills on each historical path. Their effects are mixed. None establishes a
+stable forecasting improvement, and the trust rule still needs a base-rate gate.
 
 ## Lessons applied (from building agents in production)
 
@@ -147,14 +147,14 @@ Several design choices deliberately incorporate, or diverge from, hard-won lesso
 from production agent building (e.g. Vercel's data-science-agent journey):
 
 1. **Evals can lie.** Vercel's agent aced 30 internal evals and still failed real users.
-   Aletheia's grader is the market itself, and grading is *net of trading costs*, the
-   eval cannot be gamed by epsilon drift or curated benchmarks. Synthetic runs are
+   Aletheia grades against later market observations using a cost threshold. Synthetic runs are
    treated as smoke tests, never as evidence of edge.
 2. **Skills from history, but governed.** Their recurring job distills past queries into
    skills so agents don't start from nothing. Aletheia distills *resolved decisions* into
    regime base rates, but skills must clear the decision bar through shrinkage, fire
    only on walk-forward data, and log every application to the ledger. Accumulated
-   context without an earned-credibility layer inherits an agent's biases; ours doesn't.
+   context can inherit an agent's biases. The current trust rule does not prevent
+   that unless its forecasts beat an appropriate baseline.
 3. **Observability is replay, not extra plumbing.** One append-only event log serves as
    audit trail, training data for skills, and the source for all reporting.
 4. **Filesystem > bespoke pipelines.** Where an agent in this stack needs breadth
@@ -165,9 +165,10 @@ from production agent building (e.g. Vercel's data-science-agent journey):
 
 Frontier models join the committee governed, not trusted. With `--llm` (or `llm_member=`),
 an OpenAI-compatible endpoint is asked for one JSON object per symbol per decision day,
-`{"prob_up", "confidence", "expected_edge", "rationale"}`, using **only point-in-time state**
-(prices and macro clipped to the decision date, other members present by name, never by view).
-The call is pre-registered before any committee debate sees it, then graded net-of-cost and
+`{"prob_up", "confidence", "expected_edge", "rationale"}`, using observations clipped
+to the decision date (other members appear by name, never by their views). Historical
+publication vintages for FRED macro series are not retained.
+The call is recorded before any committee debate sees it, then graded net-of-cost and
 trust-weighted exactly like the built-in members; a confidently wrong model is demoted by the
 same math that demotes anything else.
 
@@ -180,13 +181,11 @@ export ALETHEIA_LLM_MODEL=...       # default gpt-4o-mini
 python3 -m aletheia.cli backtest --synthetic --llm
 ```
 
-**Honest status:** the grading/trust path and *every* abstention path (unconfigured, network
-error, timeout, malformed JSON, out-of-range probability) are machine-proven against a
-deterministic stub in `tests/test_llm_member.py`, 18 tests. The live API path is exercised
-by an environment-gated smoke test (`test_live_smoke_call`) but has **not** been run against
-a real endpoint in this environment (no key was available); only the abstention paths are
-machine-proven end-to-end with a real-configuration-shaped member. Default runs are
-byte-identical with and without the flag wiring (the member simply issues no forecasts).
+**Honest status:** tests cover the grading, trust, and abstention paths with a
+deterministic stub. An earlier local Ollama run graded `gpt-oss:20b` over the S&P
+history; its committee-level result has not been rerun on this corrected engine.
+The optional cloud API path has not been exercised here. The environment-gated
+live smoke test is skipped without configuration.
 
 ## Data
 
