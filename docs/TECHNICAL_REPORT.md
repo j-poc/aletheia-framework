@@ -6,8 +6,8 @@
 
 Multi-agent LLM systems for financial research are typically evaluated by output quality
 (benchmark passes, report readability), not by whether their probabilistic claims resolve.
-We built a decision engine in which every committee member — human-designed heuristic or
-LLM — must emit *pre-registered, gradeable probabilistic forecasts* that are scored against
+We built a decision engine in which every committee member, human-designed heuristic or
+LLM, must emit *pre-registered, gradeable probabilistic forecasts* that are scored against
 realized market outcomes net of trading costs, with influence (trust weights) earned purely
 through calibration track record. A constitutional risk layer (position caps, leverage,
 VaR, drawdown circuit breaker enforced daily) overrides any agent output. All decisions,
@@ -16,12 +16,12 @@ vetoes, and resolutions are recorded in a hash-chained, tamper-evident ledger.
 Our headline results are deliberately mixed: across three equity markets (US large-cap,
 Dow, Nikkei; Sep 2018 – Aug 2026), the governance machinery **consistently contains
 drawdowns to 2.4–5.7%** (vs. 10–11% for a matched fixed-mix baseline, 31–37% for
-buy-and-hold), and one mechanism — shrinkage-gated regime skills — improves return on
+buy-and-hold), and one mechanism, shrinkage-gated regime skills, improves return on
 **3 of 3 markets** (median +0.7pp). However, the full system **fails to beat trivial
 baselines on risk-adjusted return** in 2 of 3 markets, and one design lever (a
 "mega-context" judge pass) *hurts* on our original market. We publish both. We also
 fill the cell this architecture exists to fill: a real LLM, graded by eight years of
-market outcomes through the member contract, **earns a durable, ranked seat — promoted
+market outcomes through the member contract, **earns a durable, ranked seat, promoted
 above its prior, last of five members** (Section 5).
 
 ## Positioning
@@ -56,7 +56,7 @@ history only); deterministic reruns (byte-identical reports); zero runtime depen
   225, VIX, 2y/10y Treasury). Decision window Sep 2018 – Aug 2026; 60-session warmup;
   rebalance every 5 sessions; 21-session forecast horizon.
 - **Grading**: a forecast counts as correct only if the realized move exceeded the
-  round-trip cost (10 bps: 5 bps per side) — agents earn credit for *tradable*
+  round-trip cost (10 bps: 5 bps per side), agents earn credit for *tradable*
   edge, not epsilon drift.
 - **No test-set tuning**: all constants (VIX thresholds 14/30, curve slope 1.5pp, skill
   shrinkage n=30, Kelly fraction 0.5, position cap 20%, VaR 2%) were fixed from design
@@ -78,8 +78,8 @@ Removing one mechanism at a time; positive number = the mechanism contributes re
 
 Macro awareness is a risk decision, not a return decision: it buys 0.5–0.8pp of
 drawdown reduction for ≈0 return cost on DJIA/Nikkei, but costs 3.3pp of return on the
-S&P+NDX book. The mega-context pass — implemented because the "one agent with full
-context" recipe is standard agent-building advice — *degrades* the original market and
+S&P+NDX book. The mega-context pass, implemented because the "one agent with full
+context" recipe is standard agent-building advice, *degrades* the original market and
 is neutral elsewhere. We keep it behind a toggle and report it as a negative result.
 
 ### 2. Baseline comparison (the honest table)
@@ -99,42 +99,42 @@ is neutral elsewhere. We keep it behind a toggle and report it as a negative res
 Read plainly: the system **wins on drawdown containment everywhere** (2.4–5.7% through
 COVID-19 and the 2022 bear) and **wins Sharpe on 1 of 3 markets**. It loses to a
 fixed index/cash mix on risk-adjusted return elsewhere. Anyone evaluating this as an
-alpha machine should stop reading here — that is not the claim.
+alpha machine should stop reading here, that is not the claim.
 
 ### 3. Calibration behavior, and a decomposition that cuts against us
 
 Mean Brier across 3,080+ graded forecasts (net-of-cost grading): 0.2547 / 0.2686 / 0.2611
-(S&P+NDX / DJIA / Nikkei) — similar across markets, all in the "better than chance, far
+(S&P+NDX / DJIA / Nikkei), similar across markets, all in the "better than chance, far
 from clairvoyant" band. The LLM member's eight-year grade lands in the same band and
 next to the same peers (Section 5).
 trust weights migrate measurably over the window (e.g., the bull agent earned weight
 through the 2019–2021 expansion and ceded it in 2022; a poorly calibrated quant was
 demoted to 0.671 in synthetic runs).
 
-The skill book's headline cell — "calm regime, high-confidence call, 73.1% net-of-cost
-hit rate (n=1071)" — **does not survive conditioning**: the unconditional calm-regime
+The skill book's headline cell, "calm regime, high-confidence call, 73.1% net-of-cost
+hit rate (n=1071)", **does not survive conditioning**: the unconditional calm-regime
 hit rate is 73.8%, so the probability-bucket contribution is −0.7pp (z = −0.37). Across
 all eight populated (regime, bucket) cells with n ≥ 30, **zero exceed |z| = 2.8**
 (α ≈ 0.005 under a Bonferroni-style correction; largest |z| = 2.78 for stressed/high,
 which is *below* its regime base by 21pp). The global net-of-cost up-rate is 65.2%.
 
 Honest interpretation: the skills mechanism's return contribution (3/3 markets above)
-comes from **regime timing** — it steers the committee toward deploying in calm regimes,
-where up-drifts clear the cost bar ~74% of the time — not from bucket-level predictive
+comes from **regime timing**, it steers the committee toward deploying in calm regimes,
+where up-drifts clear the cost bar ~74% of the time, not from bucket-level predictive
 power. The base-rate layer works as a deployment filter, not a probability refiner.
 Whether that timing edge persists out-of-window is untested.
 
 ### 4. Out-of-window validation and uncertainty (added post-review)
 
-**The skills timing edge does not replicate out-of-window.** On Nikkei 1990–2017 — 28
-years the mechanism never saw, spanning Japan's entire post-bubble bear — skills-on and
+**The skills timing edge does not replicate out-of-window.** On Nikkei 1990–2017, 28
+years the mechanism never saw, spanning Japan's entire post-bubble bear, skills-on and
 skills-off are identical: **+7.7% return, Sharpe 0.15, maxDD 6.5% both**. The in-window
 3/3 record (Section 1) should be read as regime-fit, not persistent edge.
 
 What did generalize is the risk layer: over 1990–2017 the governed committee returned
 +7.7% with 6.5% max drawdown while the Nikkei index itself lost **−41.2%** with an
 **81.8% max drawdown**. In a 28-year window where the index never recovered its 1989
-high, the constitution kept the book alive and flat-ish — the intended behavior when no
+high, the constitution kept the book alive and flat-ish, the intended behavior when no
 edge exists.
 
 **Uncertainty is wider than point estimates suggest.** Stationary-bootstrap 95% CIs on
@@ -144,7 +144,7 @@ be quoted without its interval; the OOW interval includes zero.
 
 ### 5. An LLM graded by the market: the empty cell, filled
 
-**A current-generation LLM earns a seat on the committee — and loses the top spot.**
+**A current-generation LLM earns a seat on the committee, and loses the top spot.**
 We seated an open-weights 20B reasoning model (`gpt-oss:20b` served locally via Ollama,
 `reasoning_effort: low`) through the standard member contract: pre-registered
 probabilistic forecasts committed before evidence review, graded net-of-cost against
@@ -152,7 +152,7 @@ probabilistic forecasts committed before evidence review, graded net-of-cost aga
 by the same calibration rule as the built-ins. 390 calls, 0 retries, 0 abstentions; the
 resulting 5,044-entry ledger verifies end-to-end, with the SHA-256 chain recomputed
 independently of the framework's own loader. (Method note: cloud free tiers proved
-non-viable — Gemini's free tier now allows ~20 requests/day — so the run executed
+non-viable, Gemini's free tier now allows ~20 requests/day, so the run executed
 locally, which also makes it exactly reproducible by anyone with the weights.)
 
 | member | n | Brier | ECE | final trust weight |
@@ -168,13 +168,13 @@ The committee **promoted the LLM above its uniform prior**: its weight rose from
 at 1.473). But every specialized built-in out-graded it, and it finished last of five
 in earned influence. It is demonstrably not noise (0.50 would be guessing; its
 net-of-cost hit rate matches the book at 0.668) and better calibrated than the quant
-member (ECE 0.146 vs 0.182) — while carrying the worst Brier of the five.
+member (ECE 0.146 vs 0.182), while carrying the worst Brier of the five.
 
 The trajectory is the interesting part: per-third Brier runs **0.2621 → 0.2977 →
-0.2508** — degradation concentrated in the 2021–2024 bear/chop, its best grading in
+0.2508**, degradation concentrated in the 2021–2024 bear/chop, its best grading in
 2024–2026. The trust mechanism did precisely what it exists to do: demoted the member
 through its worst regime, never discarded it, and priced its recovery. Neither
-worship nor exile — a real, ranked, earned seat.
+worship nor exile, a real, ranked, earned seat.
 
 Limitations, stated plainly: this is an open-weights 20B model, not a frontier API
 model; one market; and the grading is the committee's own rule. Whether frontier
@@ -189,7 +189,7 @@ runner exist to answer it.
 3. An early adversarial gate design was a logical trap (any bear pressure ≥ the strict
    bar automatically breached it, killing 88/89 theses); the fix (gradient bar) is
    documented because such incentive traps are the failure mode this architecture exists
-   to catch — including in itself.
+   to catch, including in itself.
 
 ## Limitations
 
@@ -210,7 +210,7 @@ runner exist to answer it.
 pip install .[dev]
 python -m pytest tests/ -q                  # 51 tests
 python -m aletheia.cli backtest --start 2018-09-01 --end 2026-08-31 --ledger-out run_ledger.jsonl
-python -m aletheia.cli report --path run_ledger.jsonl   # trust evolution, vetoes, skills — replayed from the ledger
+python -m aletheia.cli report --path run_ledger.jsonl   # trust evolution, vetoes, skills, replayed from the ledger
 python -m aletheia.cli verify-ledger --path run_ledger.jsonl
 ```
 
