@@ -23,10 +23,10 @@ That's not accountability.
 **3/**
 The referee has four parts:
 
-• A committee of forecasters (rules + any AI you seat)
-• A trust model that grades every past call and sets voting weight
-• A falsification gate — a bear agent whose job is to kill weak theses before money moves
-• Hard risk law in CODE: position caps, drawdown brakes. No agent can override.
+• A committee of forecasters (rules + any AI)
+• A trust model: grades calls, sets voting weight
+• A falsification gate: a bear agent kills weak theses before money moves
+• Risk law in CODE: caps, leverage, drawdown brakes. No agent overrides.
 
 **4/**
 The one rule that makes it all work:
@@ -46,18 +46,18 @@ What the AI was NOT: a market wizard.
 Raw up/down score: 66.8% — identical to EVERY other member. Not skill: the S&P just rose on ~67% of windows in this era. Any forecaster leaning "up" lands there. The market giveth the base rate.
 
 **7/**
-The differentiation was confidence quality: when it said "70% sure," was it right 70% of the time?
+The exam was calibration: "70% sure" must mean right 70% of the time.
 
-All four rules beat it on accuracy (best Brier 0.236, worst 0.268; the AI: 0.270).
+All four rules beat the AI on accuracy (Brier 0.236–0.268 vs 0.270).
 
-But on CALIBRATION the ordering flipped: the AI (ECE 0.146) knew what it didn't know better than the quant rule that narrowly beat it (0.182).
+But there the order flipped: the AI (0.146) knew what it didn't know better than the rule that beat it (0.182).
 
 **8/**
 Final rank: LAST of five.
 
-Honest headline: a current-gen AI predicts markets about as well as — but no better than — simple rules a person writes in an afternoon.
+Honest headline: a current-gen AI predicts markets about as well as — but no better than — rules written in an afternoon.
 
-And the full system isn't an alpha engine either. It does NOT beat a boring index fund on risk-adjusted return. Published, prominently.
+And the system is NOT an alpha engine: it doesn't beat a boring index fund on risk-adjusted return. Published.
 
 **9/**
 More honesty: our pattern-finding "skills" feature helped in backtest (3 of 3 markets) — and exactly 0.0pp out-of-sample.
