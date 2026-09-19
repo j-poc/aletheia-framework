@@ -122,10 +122,9 @@ class ResolutionRecord:
             "outcome": self.outcome,
             "confidence": round(self.confidence, 3),
             "regime": self.regime,
-            # Skill base rates are about *decisions* (the judge's calls):
-            # member forecasts are inputs, not decisions, so they are not
-            # skill evidence.
-            "skill_kind": "committee",
+            # Only the issued judge forecast is a committee decision.
+            # Member forecasts are inputs, not skill evidence.
+            "skill_kind": "committee" if self.agent == "judge" else "member",
         }
 
     @classmethod

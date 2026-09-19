@@ -1,0 +1,40 @@
+{
+  "as_of": "2026-09-19",
+  "series": {
+    "DGS10": {
+      "file": "DGS10_2026-08-18.csv",
+      "sha256": "748e3bf91f6f6420fddba13cd59a4a98d88a4c2f318b16bfa34f47c042f0bbeb",
+      "source": "https://fred.stlouisfed.org/series/DGS10"
+    },
+    "DGS2": {
+      "file": "DGS2_2026-08-18.csv",
+      "sha256": "515452455c02cdbc16b74849a62da7baf280d11acaeccf049b05dba4ae973fe1",
+      "source": "https://fred.stlouisfed.org/series/DGS2"
+    },
+    "DJIA": {
+      "file": "DJIA_2026-09-18.csv",
+      "sha256": "cc966a12b463ff81bbbc5d15f449c25f8216fc6979f5ad491d6909f95e72c971",
+      "source": "https://fred.stlouisfed.org/series/DJIA"
+    },
+    "NASDAQCOM": {
+      "file": "NASDAQCOM_2026-08-18.csv",
+      "sha256": "c339a5042fff2025bb2064c96bc0dcfd86d45c528fc8abb4b8ee8123e1d9d070",
+      "source": "https://fred.stlouisfed.org/series/NASDAQCOM"
+    },
+    "NIKKEI225": {
+      "file": "NIKKEI225_2026-09-18.csv",
+      "sha256": "a494943d4bd851aa1ee68efb022e5b49d5a3a6f9b7efa4a942f0dda481e4afbc",
+      "source": "https://fred.stlouisfed.org/series/NIKKEI225"
+    },
+    "SP500": {
+      "file": "SP500_2026-08-18.csv",
+      "sha256": "a05c957ec824cd18b6646fa29f881f49c3f55c037b282a4711e984da10ce1255",
+      "source": "https://fred.stlouisfed.org/series/SP500"
+    },
+    "VIXCLS": {
+      "file": "VIXCLS_2026-08-18.csv",
+      "sha256": "134592bcb309a4f611c30ae235e63da5cb815c48f8ed3e5090e247b9cd6cf81d",
+      "source": "https://fred.stlouisfed.org/series/VIXCLS"
+    }
+  }
+}

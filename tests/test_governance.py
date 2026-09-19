@@ -325,6 +325,25 @@ class TestRegimeSkills:
         n = book.distill(led2)
         assert n == 10  # abstentions (confidence 0) are not skill evidence
 
+    def test_member_forecasts_are_not_committee_skill_evidence(self):
+        from aletheia.agents.skills import RegimeSkillBook
+        from aletheia.core.types import ResolutionRecord
+
+        led = DecisionLedger()
+        for agent, outcome in [("quant", True), ("bull", True),
+                               ("bear", True), ("judge", False)]:
+            payload = ResolutionRecord("X", agent, 0.7, outcome, 0.6,
+                                       "calm").to_payload()
+            led.append("resolution", date(2025, 1, 22), payload)
+
+        book = RegimeSkillBook()
+        assert book.distill(led) == 1
+        assert book.stats[("calm", "hi")].n == 1
+        assert book.stats[("calm", "hi")].hits == 0
+        assert [e.payload["skill_kind"] for e in led.entries] == [
+            "member", "member", "member", "committee",
+        ]
+
     def test_small_sample_never_fires(self):
         from aletheia.agents.skills import RegimeSkillBook
         book = RegimeSkillBook(shrinkage_n=30)

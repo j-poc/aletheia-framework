@@ -15,9 +15,9 @@ Timeline of one run:
 5. forecasts, vetoes and orders all hit the hash-chained ledger
 6. H days later every forecast is resolved and trust weights update
 
-On EVERY day — decision or not — the engine marks the book to market and
-the governor re-checks the drawdown circuit breaker. Risk law is enforced
-daily, not just when the committee happens to meet.
+On EVERY day, before any new order, the engine marks yesterday's holdings
+to market and checks the drawdown circuit breaker. Risk law is enforced
+daily, including between committee meetings.
 """
 from __future__ import annotations
 
@@ -85,7 +85,7 @@ class DecisionEngine:
         self.equity_curve: list[tuple[date, float]] = []
         self.positions: dict[str, float] = {}
         self.entry_px: dict[str, float] = {}
-        self.pending: list[tuple[Forecast, date]] = []
+        self.pending: list[tuple[Forecast, date, str]] = []
         self.resolved_log: list[Forecast] = []
         self.n_decision_days = 0
 
@@ -103,10 +103,10 @@ class DecisionEngine:
         if the move exceeded the cost of acting on the call. An agent earns
         credit for edge that was actually tradable, not for epsilon drift.
         """
-        still: list[tuple[Forecast, date]] = []
+        still: list[tuple[Forecast, date, str]] = []
         h = self.cfg.horizon_days
         rt_cost = 2.0 * self.cfg.cost_bps / 10_000
-        for f, resolve_on in self.pending:
+        for f, resolve_on, issued_regime in self.pending:
             if as_of >= resolve_on:
                 px = snapshot.closes(f.symbol)
                 if len(px) >= h + 1:
@@ -120,14 +120,14 @@ class DecisionEngine:
                         symbol=f.symbol, agent=f.agent or "unclassified",
                         prob_up=f.prob_up, outcome=outcome,
                         confidence=f.confidence,
-                        regime=regime_of(snapshot, f.symbol),
+                        regime=issued_regime,
                     ).to_payload())
                 else:
                     # keep trying: a short provider history must not turn
                     # into a silent never-resolve (forecast stays pending)
-                    still.append((f, resolve_on))
+                    still.append((f, resolve_on, issued_regime))
             else:
-                still.append((f, resolve_on))
+                still.append((f, resolve_on, issued_regime))
         self.pending = still
 
     def _sizing(self, f: Forecast, vol_by_symbol: dict[str, float]) -> float:
@@ -146,6 +146,44 @@ class DecisionEngine:
             rets = snapshot.returns(s, 63)
             out[s] = statistics.pstdev(rets) * math.sqrt(252) if len(rets) >= 20 else 0.30
         return out
+
+    def _mark_to_market(self, snap: MarketSnapshot) -> None:
+        """Earn the day's move on yesterday's holdings before any new order."""
+        moves: dict[str, float] = {}
+        for s in self.positions:
+            px = snap.closes(s)
+            if s in self.entry_px and px and self.entry_px[s] > 0:
+                moves[s] = px[-1] / self.entry_px[s] - 1.0
+        pnl = sum(w * moves.get(s, 0.0) for s, w in self.positions.items())
+        growth = 1.0 + pnl
+        if growth <= 0:
+            raise RuntimeError("portfolio equity exhausted during daily mark")
+        self.equity *= growth
+        # Held quantities stay fixed between orders; weights drift with prices.
+        self.positions = {
+            s: w * (1.0 + moves.get(s, 0.0)) / growth
+            for s, w in self.positions.items()
+        }
+        self.entry_px = {s: snap.closes(s)[-1]
+                         for s in self.positions if snap.closes(s)}
+        self.governor.update_equity(self.equity)
+
+    def _enforce_daily(self, as_of: date) -> None:
+        tripped, veto = self.governor.enforce_daily(self.equity)
+        if not tripped:
+            return
+        self.ledger.append("veto", as_of, {
+            "clause": veto.clause, "reason": veto.reason, "daily": True,
+        })
+        turnover = sum(abs(w) for w in self.positions.values())
+        self.equity *= 1.0 - turnover * self.cfg.cost_bps / 10_000
+        self.ledger.append("order", as_of, {
+            "weights": {}, "equity": self.equity,
+            "turnover": turnover,
+        })
+        self.positions = {}
+        self.entry_px = {}
+        self.governor.update_equity(self.equity)
 
     def _decision_cycle(self, as_of: date, snap: MarketSnapshot, i: int,
                         cal_dates: list[date]) -> None:
@@ -178,18 +216,18 @@ class DecisionEngine:
         self.entry_px = {s: snap.closes(s)[-1]
                          for s in self.positions if snap.closes(s)}
 
-        if self.positions:
+        if turnover > 0:
             self.ledger.append("order", as_of, {
-                "weights": {s: round(w, 4) for s, w in self.positions.items()},
-                "equity": round(self.equity, 2),
-                "turnover": round(turnover, 4),
+                "weights": self.positions.copy(),
+                "equity": self.equity,
+                "turnover": turnover,
             })
 
         # member forecasts + the fused call all get graded
         resolve_on = cal_dates[min(i + self.cfg.horizon_days, len(cal_dates) - 1)]
         for s in self.symbols:
             for f in decision.members[s] + [decision.fused[s]]:
-                self.pending.append((f, resolve_on))
+                self.pending.append((f, resolve_on, regime_of(snap, s)))
 
     # ------------------------------------------------------------------
     def run(self, start: date, end: date) -> dict:
@@ -220,31 +258,18 @@ class DecisionEngine:
             # 0) risk clock: cooldown countdown runs daily
             self.governor.state.advance_day()
 
-            # 1) committee cycle on decision days
+            # 1) mark yesterday's holdings, then check the risk limit
+            self._mark_to_market(snap)
+            self._enforce_daily(as_of)
+
+            # 2) committee cycle at today's close
             is_decision = ((i - warmup) % self.cfg.rebalance_every) == 0
             if is_decision:
                 self._decision_cycle(as_of, snap, i, cal_dates)
-
-            # 2) mark book to market (daily, one day of pnl per mark)
-            pnl = 0.0
-            for s, w in self.positions.items():
-                px = snap.closes(s)
-                if s in self.entry_px and px and self.entry_px[s] > 0:
-                    pnl += w * (px[-1] / self.entry_px[s] - 1.0)
-            self.equity *= (1.0 + pnl)
-            self.entry_px = {s: snap.closes(s)[-1]
-                             for s in self.positions if snap.closes(s)}
+                # Order costs can themselves cross the drawdown limit.
+                self.governor.update_equity(self.equity)
+                self._enforce_daily(as_of)
             self.equity_curve.append((as_of, self.equity))
-            self.governor.update_equity(self.equity)
-
-            # 3) daily constitutional enforcement (Art. IV)
-            tripped, veto = self.governor.enforce_daily(self.equity)
-            if tripped:
-                self.ledger.append("veto", as_of, {
-                    "clause": veto.clause, "reason": veto.reason, "daily": True,
-                })
-                self.positions = {}
-                self.entry_px = {}
 
         self.ledger.append("session_end", end, {
             "final_equity": round(self.equity, 2),
@@ -256,18 +281,20 @@ class DecisionEngine:
     # ------------------------------------------------------------------
     def report(self) -> dict:
         curve = self.equity_curve
-        rets = [curve[i][1] / curve[i - 1][1] - 1.0 for i in range(1, len(curve))]
+        rets = ([curve[0][1] / self.cfg.initial_capital - 1.0] if curve else [])
+        rets += [curve[i][1] / curve[i - 1][1] - 1.0
+                 for i in range(1, len(curve))]
         ann = math.sqrt(252)
         mean_d = statistics.mean(rets) if rets else 0.0
         sd_d = statistics.pstdev(rets) if len(rets) > 1 else 1e-9
         sharpe = (mean_d / sd_d) * ann if sd_d > 0 else 0.0
-        peak = curve[0][1] if curve else 1.0
+        peak = self.cfg.initial_capital
         max_dd = 0.0
         for _, v in curve:
             peak = max(peak, v)
             if peak > 0:
                 max_dd = max(max_dd, 1.0 - v / peak)
-        total = curve[-1][1] / curve[0][1] - 1.0 if curve else 0.0
+        total = curve[-1][1] / self.cfg.initial_capital - 1.0 if curve else 0.0
         briers = [f.brier for f in self.resolved_log if f.brier is not None]
         absten = sum(1 for f in self.resolved_log if f.confidence <= 0)
         graded = [f for f in self.resolved_log if f.confidence > 0]
