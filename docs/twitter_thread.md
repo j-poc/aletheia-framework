@@ -69,10 +69,10 @@ Low drawdown by itself does not prove the risk rules added value. The strategy o
 held less market exposure. An exposure-matched comparison is still needed.
 
 **12/**
-The corrected build has 58 passing tests and an independently replayed portfolio
-ledger. Every member in the U.S. pair also lagged a rolling base-rate forecast on
-Brier score. The result is a working research instrument with unproven investment
-advantage. The raw market inputs are not distributed; the report pins their hashes.
+58 tests pass; the ledger replays from its hash chain.
+Every U.S.-pair member lagged a rolling base-rate forecast on Brier.
+A research tool, not a proven edge. Raw inputs are not distributed;
+hashes are pinned in the report.
 
-Repo + technical report:
+Repo:
 https://github.com/j-poc/aletheia-framework
