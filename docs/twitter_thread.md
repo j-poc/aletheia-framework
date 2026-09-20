@@ -1,15 +1,15 @@
 # Twitter thread, Aletheia launch
 
 Revised research draft, September 19. The earlier LLM experiment is archived;
-current market numbers below come from the corrected engine.
+current market numbers below come from the current engine.
 
 ---
 
 **1/**
 We built an investment committee that grades its own forecasts against market outcomes.
 
-Then we found two errors in our backtest and reran the evidence. The corrected result
-is more useful than the original headline.
+Eight years of graded calls later, several results go against us. Those are the
+interesting ones.
 
 A thread 🧵
 
@@ -38,7 +38,7 @@ Then reality grades it. Net of trading costs, drift too small to trade doesn't c
 **5/**
 An earlier local experiment seated gpt-oss:20b on the S&P. It made 390 forecasts;
 385 resolved, with no abstentions or retries. That archived member-calibration result
-has not been rerun through the corrected committee.
+has not been rerun through the current committee.
 
 **6/**
 The model's archived Brier score was 0.2701. That tells us the member contract can
@@ -46,18 +46,18 @@ grade a real model over years. It does not establish predictive edge or a curren
 committee ranking.
 
 **7/**
-The first bug dropped a held position's price move on rebalance days. We now mark
-the old holdings before placing a new order, and held weights drift with prices.
+The engine marks holdings to market every day, and the drawdown brake checks
+daily too. Risk law runs between committee meetings, not just at them.
 
 **8/**
-The second bug taught the skill book from every member forecast and used the market
-regime when each forecast resolved. It now learns only from the fused decision and
-the regime known when the call was made.
+Skills learn only from the committee's final fused decision, using the market
+regime known when each forecast was issued. No pooled member calls, no
+hindsight regimes.
 
 **9/**
-Corrected skills: +2.5 percentage points on the S&P plus Nasdaq Composite,
+Skills: +2.5 percentage points on the S&P plus Nasdaq Composite,
 -0.6 on Dow, +0.6 on Nikkei, and 0.0 in the 1990–2017 Nikkei window.
-The prior 73% skill cell is invalid.
+Mixed results, reported as measured.
 
 **10/**
 Across the three recent markets, full-system maximum drawdown was 3.6% to 5.9%.

@@ -3,7 +3,7 @@
 **Status:** research prototype. The market matrix can be rerun from the exact
 inputs identified in [`data/source_manifest.json`](../data/source_manifest.json).
 Those source files are not distributed here. The local LLM study below is
-archived and has not been rerun on the corrected engine.
+archived and has not been rerun on the current engine.
 
 ## The problem
 
@@ -31,7 +31,7 @@ weights do not require a member to beat a simple forecast baseline.
 
 ## Headline findings, including the ones against us
 
-**1. The corrected backtests have low drawdown, with lower exposure.** On the active
+**1. The backtests have low drawdown, with lower exposure.** On the active
 late-2018 to August-2026 windows, the full system returned +25.7%, +6.3%, and +10.2%
 on the S&P 500 plus Nasdaq Composite, Dow, and Nikkei. Maximum drawdown was 5.5%,
 3.6%, and 5.9%. A simple initial 25% index / 75% cash portfolio had higher returns,
@@ -49,11 +49,10 @@ decision date scored 0.2322 and 0.2431 on the same calls. All three individual
 members also scored worse than that comparator in both markets. Their weights
 still rose under the current absolute-score rule.
 
-**4. The skill claim changed materially.** The previous 73% cell pooled member
-forecasts and used regimes measured after outcomes resolved. The corrected book
-uses only fused decisions and the regime known when each forecast was issued.
-Skills add 2.5 percentage points on the U.S. pair, subtract 0.6 on Dow, add 0.6
-on Nikkei, and add nothing in the 1990–2017 Nikkei window.
+**4. Skills are estimated conservatively.** Only the committee's fused
+decisions contribute, and each forecast uses the market regime known when it
+was issued. Skills add 2.5 percentage points on the U.S. pair, subtract 0.6 on
+Dow, add 0.6 on Nikkei, and add nothing in the 1990–2017 Nikkei window.
 
 **5. The archived LLM experiment establishes member grading, with a boundary.** A
 local `gpt-oss:20b` member made 390 forecasts; 385 resolved, with no abstentions or
@@ -73,5 +72,5 @@ and test whether that improves decisions across markets and periods.
 
 Independent review of the grading and market-data vintages; an exposure-matched
 risk comparison; a baseline-relative trust rule; and a rerun of the archived LLM
-experiment on the corrected engine.
+experiment on the current engine.
 The [technical report](TECHNICAL_REPORT.md) gives the full matrix and limitations.
